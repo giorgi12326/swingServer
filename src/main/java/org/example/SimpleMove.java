@@ -158,7 +158,7 @@ public class SimpleMove extends Canvas implements Runnable {
             while (true) {
 
                 for(Client client : clients) {
-                    ByteBuffer buffer = ByteBuffer.allocate(12 + 4 + bullets.size() * 2 *(4 * 5 + 2) + 2); // 4 bytes per float * 3
+                    ByteBuffer buffer = ByteBuffer.allocate(12 + 4 + bullets.size() * 2 *(4 * 5 + 2) + 2 + (4 + (clients.size()-1)*(5*4 + 1))); // 4 bytes per float * 3
                     buffer.putFloat(client.cameraCoords.x);
                     buffer.putFloat(client.cameraCoords.y);
                     buffer.putFloat(client.cameraCoords.z);
@@ -175,6 +175,18 @@ public class SimpleMove extends Canvas implements Runnable {
                     }
                     buffer.put((byte)(client.heldBullet != null ? 1 : 0));
                     buffer.put((byte)(client.grapplingEquipped? 1 : 0));
+
+                    buffer.putInt(clients.size()-1);
+                    for(Client c : clients) {
+                        if(c == client)
+                            continue;
+                        buffer.putFloat(c.cameraCoords.x);
+                        buffer.putFloat(c.cameraCoords.y);
+                        buffer.putFloat(c.cameraCoords.z);
+                        buffer.putFloat(c.cameraRotation.x);
+                        buffer.putFloat(c.cameraRotation.y);
+                        buffer.put((byte)(c.grapplingEquipped? 1 : 0));
+                    }
 
 
                     byte[] data = buffer.array();
