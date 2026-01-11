@@ -10,7 +10,7 @@ public class SimpleMove {
     final long TICK_DURATION_MS = 1000 / TICK_RATE; // ≈16 ms per tick
 
     Set<Client> clients = new HashSet<>();
-    ByteBuffer senderBuffer = ByteBuffer.allocate(12 + 4 + 50 * 2 *(4 * 5 + 2) + 2 + (4 + (2-1)*(5*4 + 1))); // 4 bytes per float * 3
+    ByteBuffer senderBuffer = ByteBuffer.allocate(4096); // 4 bytes per float * 3
 
     public static  boolean deathCubeSpawnMode = false;
     public static float deltaTime = 0f;
@@ -81,13 +81,13 @@ public class SimpleMove {
                     boolean newClient = true;
                     Client client = null;
                     for(Client c : clients) {
-                        if(packet.getAddress().toString().equals(c.ip) && packet.getPort() == c.port) {
+                        if(packet.getAddress().toString().equals(c.ip.toString()) && packet.getPort() == c.port) {
                             client = c;
                             newClient = false;
                         }
                     }
                     if(newClient) {
-                        client = new Client(packet.getAddress().toString(), packet.getPort(),readerBuffer);
+                        client = new Client(packet.getAddress(), packet.getPort(),readerBuffer);
                         clients.add(client);
                         System.out.println("client connected with ip: " + packet.getAddress() + " and port: " + packet.getPort());
                     }

@@ -6,7 +6,7 @@ import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 
 public class Client {
-    String ip;
+    InetAddress ip;
     public int port;
 
     Triple sum = new Triple(0f,0f,0f);
@@ -31,15 +31,11 @@ public class Client {
 
 
 
-    public Client(String ip, int port , ByteBuffer buffer) {
-        this.ip = ip;
+    public Client(InetAddress inetAddress, int port , ByteBuffer buffer) {
+        this.ip = inetAddress;
         this.port = port;
         byte[] arr = buffer.array();
-        try {
-            packet = new DatagramPacket(arr, arr.length, InetAddress.getByName(ip), port);
-        } catch (UnknownHostException e) {
-            throw new RuntimeException(e);
-        }
+        packet = new DatagramPacket(arr, arr.length, ip, port);
 
     }
 }
