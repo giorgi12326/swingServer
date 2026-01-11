@@ -112,6 +112,11 @@ public class SimpleMove {
 
         while(true) {
             long tickStart = System.currentTimeMillis();
+
+            long now = System.currentTimeMillis();
+            deltaTime = (now - lastTime) / 1000f;
+            lastTime = now;
+
             for (Client c : clients) {
                 boolean w, a, s, d, space, leftClick, rightClick;
                 float rotationX, rotationY;
