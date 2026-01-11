@@ -4,7 +4,6 @@ import java.awt.*;
 import java.awt.geom.Line2D;
 import java.util.List;
 
-import static org.example.SimpleMove.SCREEN_HEIGHT;
 import static org.example.SimpleMove.deltaTime;
 
 public abstract class Shootable extends Projectable{

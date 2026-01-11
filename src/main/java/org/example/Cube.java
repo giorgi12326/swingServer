@@ -5,7 +5,6 @@ import java.awt.geom.Line2D;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.example.SimpleMove.SCREEN_HEIGHT;
 
 public class Cube {
     public static List<Pair<Integer>> edges =  new ArrayList<>();

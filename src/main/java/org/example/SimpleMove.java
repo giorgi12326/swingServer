@@ -1,53 +1,33 @@
 package org.example;
 
-import java.awt.Canvas;
-import java.awt.Graphics2D;
-import java.awt.Color;
-import java.awt.geom.Rectangle2D;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.net.SocketException;
+import java.io.IOException;
+import java.net.*;
 import java.nio.ByteBuffer;
 import java.util.*;
 
-public class SimpleMove extends Canvas implements Runnable {
-    Set<Client> clients = new HashSet<>();
+public class SimpleMove {
+    final long TICK_RATE = 60;
+    final long TICK_DURATION_MS = 1000 / TICK_RATE; // ≈16 ms per tick
 
-    public static final float SCREEN_WIDTH = 1280f;
-    public static final float SCREEN_HEIGHT = 720f;
-    public static final float moveSpeed = 6f;
+    Set<Client> clients = new HashSet<>();
+    ByteBuffer senderBuffer = ByteBuffer.allocate(12 + 4 + 50 * 2 *(4 * 5 + 2) + 2 + (4 + (2-1)*(5*4 + 1))); // 4 bytes per float * 3
+
     public static  boolean deathCubeSpawnMode = false;
-    public static boolean hit = false;
-    public final Set<Integer> keysDown = new HashSet<>();
-    public static float deltaTime = 1f;
-    public static float FOV = 1;
+    public static float deltaTime = 0f;
     long lastTime = System.nanoTime();
 
-    long bulletShotLastTime = System.currentTimeMillis();
-    long deathCubeLastSpawnTime = System.currentTimeMillis(); // class-level variable
-
-//    public static boolean swinging = false;
-//    public static boolean client.grapplingEquipped = false;
-
-//    public static Triple cameraCoords = new Triple(0f,0f,0f);
-//    public static Pair<Float> cameraRotation = new Pair<>(0f,0f);
+    long deathCubeLastSpawnTime = System.currentTimeMillis();
 
     List<Cube> cubes;
     List<DeathCube> deathCubes = new ArrayList<>();
     List<Triple> floor = new ArrayList<>();
-    List<BulletHead> bullets = new ArrayList<>();
-
+    public static List<BulletHead> bullets = new ArrayList<>();
 
     public static final float GRAVITY = 10f;
 
-//    private boolean inAir;
-//    private Triple client.sum;
-
-    Gun gun = new Gun(0,0,0);
-//    GrapplingHead grapplingHead = new GrapplingHead(0,0f,0);
-    private Triple anchor;
     private DatagramSocket socket;
+
+
 
     public SimpleMove() {
         this.cubes = new ArrayList<>();
@@ -61,7 +41,6 @@ public class SimpleMove extends Canvas implements Runnable {
         cubes.add(new Cube(0.5f,4.5f, 23.5f,1f));
         cubes.add(new Cube(0.5f,4.5f, 30.5f,1f));
 
-        setSize((int)SCREEN_WIDTH, (int)SCREEN_HEIGHT);
 
         for (int i = -10; i < 10; i++) {
             for (int j = -10; j < 10; j++) {
@@ -70,77 +49,59 @@ public class SimpleMove extends Canvas implements Runnable {
         }
     }
 
-    public void start() throws Exception {
-        socket = new DatagramSocket(1234, InetAddress.getByName("0.0.0.0"));
+    public void start()  {
+        try {
+            socket = new DatagramSocket(1234, InetAddress.getByName("0.0.0.0"));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         System.out.println("Socket Created");
-
-        new Thread(this).start();
 
         new Thread(() -> {
             try {
                 System.out.println("Server listening...");
 
+                byte[] buf = new byte[32];
+                DatagramPacket packet = new DatagramPacket(buf, buf.length);
+                ByteBuffer readerBuffer = ByteBuffer.wrap(buf);
                 while (true) {
-                    byte[] buf = new byte[32];
-                    DatagramPacket packet = new DatagramPacket(buf, buf.length);
                     socket.receive(packet);
+                    readerBuffer.clear();
+
+                    boolean w = readerBuffer.get() == 1;
+                    boolean a = readerBuffer.get() == 1;
+                    boolean s = readerBuffer.get() == 1;
+                    boolean d = readerBuffer.get() == 1;
+                    boolean space = readerBuffer.get() == 1;
+                    boolean leftClick = readerBuffer.get() == 1;
+                    boolean rightClick = readerBuffer.get() == 1;
+                    float rotationX = readerBuffer.getFloat();
+                    float rotationY = readerBuffer.getFloat();
+
                     boolean newClient = true;
                     Client client = null;
                     for(Client c : clients) {
-                        if(packet.getAddress().toString().equals(c.ip.toString()) && packet.getPort() == c.port) {
+                        if(packet.getAddress().toString().equals(c.ip) && packet.getPort() == c.port) {
                             client = c;
                             newClient = false;
                         }
                     }
                     if(newClient) {
-                        client = new Client(packet.getAddress(), packet.getPort());
+                        client = new Client(packet.getAddress().toString(), packet.getPort(),readerBuffer);
                         clients.add(client);
                         System.out.println("client connected with ip: " + packet.getAddress() + " and port: " + packet.getPort());
                     }
 
-                    ByteBuffer buffer = ByteBuffer.wrap(packet.getData(), 0, packet.getLength());
-
-                    boolean w = buffer.get() == 1;
-                    boolean a = buffer.get() == 1;
-                    boolean s = buffer.get() == 1;
-                    boolean d = buffer.get() == 1;
-                    boolean space = buffer.get() == 1;
-                    boolean leftClick = buffer.get() == 1;
-                    boolean rightClick = buffer.get() == 1;
-                    float rotationX = buffer.getFloat();
-                    float rotationY = buffer.getFloat();
-
-                    client.sum = new Triple(0f,0f,0f);
-
-                    client.cameraRotation.x = rotationX;
-                    client.cameraRotation.y = rotationY;
-
-                    if(w) client.cameraCoords = client.cameraCoords.add(moveForward(client));
-                    if(a) client.cameraCoords = client.cameraCoords.add(moveLeft(client));
-                    if(s) client.cameraCoords = client.cameraCoords.add(moveBackward(client));
-                    if(d) client.cameraCoords = client.cameraCoords.add(moveRight(client));
-                    if(space && !client.inAir) {
-                        client.speedY = 6f;
-                        client.inAir = true;
-                    }
-
-                    if(leftClick) {
-                        Ray ray = new Ray(new Triple(client.cameraCoords), new Pair<>(client.cameraRotation), 5f);
-                        if(client.grapplingEquipped && !client.grapplingHead.shot){
-                            prepareShootableForFlying(ray.direction, client.grapplingHead, client);
-                        }
-                        else {
-                            prepareBulletForFlying(ray.direction, client);
-                        }
-                    }
-                    if(rightClick) {
-                        client.grapplingEquipped = !client.grapplingEquipped;
-                        client.swinging = false;
-                        client.grapplingHead.shot = false;
-                    }
-
-                    for(Client c : clients) {
-                        update(c);
+                    synchronized(client.inputLock) {
+                        client.latestInput.w = w;
+                        client.latestInput.a = a;
+                        client.latestInput.s = s;
+                        client.latestInput.d = d;
+                        client.latestInput.space = space;
+                        client.latestInput.leftClick = leftClick;
+                        client.latestInput.rightClick = rightClick;
+                        client.latestInput.rotationX = rotationX;
+                        client.latestInput.rotationY = rotationY;
                     }
 
                 }
@@ -148,69 +109,123 @@ public class SimpleMove extends Canvas implements Runnable {
                 throw new RuntimeException(e);
             }
         }).start();
-    }
 
-    @Override
-    public void run() {
-        try {
+        while(true) {
+            long tickStart = System.currentTimeMillis();
+            for (Client c : clients) {
+                boolean w, a, s, d, space, leftClick, rightClick;
+                float rotationX, rotationY;
 
+                synchronized (c.inputLock) {
+                    w = c.latestInput.w;
+                    a = c.latestInput.a;
+                    s = c.latestInput.s;
+                    d = c.latestInput.d;
+                    space = c.latestInput.space;
+                    leftClick = c.latestInput.leftClick;
+                    rightClick = c.latestInput.rightClick;
+                    rotationX = c.latestInput.rotationX;
+                    rotationY = c.latestInput.rotationY;
 
-            while (true) {
-
-                for(Client client : clients) {
-                    ByteBuffer buffer = ByteBuffer.allocate(12 + 4 + bullets.size() * 2 *(4 * 5 + 2) + 2 + (4 + (clients.size()-1)*(5*4 + 1))); // 4 bytes per float * 3
-                    buffer.putFloat(client.cameraCoords.x);
-                    buffer.putFloat(client.cameraCoords.y);
-                    buffer.putFloat(client.cameraCoords.z);
-
-                    buffer.putInt(bullets.size());
-                    for (BulletHead bulletHead : bullets) {
-                        buffer.putFloat(bulletHead.x);
-                        buffer.putFloat(bulletHead.y);
-                        buffer.putFloat(bulletHead.z);
-                        buffer.putFloat(bulletHead.rotation.x);
-                        buffer.putFloat(bulletHead.rotation.y);
-                        buffer.put((byte) (bulletHead.shot ? 1 : 0));
-                        buffer.put((byte) (bulletHead.flying ? 1 : 0));
-                    }
-                    buffer.put((byte)(client.heldBullet != null ? 1 : 0));
-                    buffer.put((byte)(client.grapplingEquipped? 1 : 0));
-
-                    buffer.putInt(clients.size()-1);
-                    for(Client c : clients) {
-                        if(c == client)
-                            continue;
-                        buffer.putFloat(c.cameraCoords.x);
-                        buffer.putFloat(c.cameraCoords.y);
-                        buffer.putFloat(c.cameraCoords.z);
-                        buffer.putFloat(c.cameraRotation.x);
-                        buffer.putFloat(c.cameraRotation.y);
-                        buffer.put((byte)(c.grapplingEquipped? 1 : 0));
-                    }
-
-
-                    byte[] data = buffer.array();
-
-                    socket.send(new DatagramPacket(data, data.length, client.ip, client.port));
                 }
+                useReceivedData(c,
+                        rotationX, rotationY,
+                        w, a, s, d,
+                        space,
+                        leftClick, rightClick);
 
-                long now = System.nanoTime();
-                deltaTime = (now - lastTime) / 1_000_000_000f;
-                lastTime = now;
-
-                Thread.sleep(5);   // ~60 FPS
+                update(c);
+            }
+            try {
+                broadCastState();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
 
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+            long tickDuration =  System.currentTimeMillis() - tickStart;
+            try {
+                long sleepTime = Math.max(0, TICK_DURATION_MS - tickDuration);
+
+                Thread.sleep(sleepTime);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    private void useReceivedData(Client client, float rotationX, float rotationY, boolean w, boolean a, boolean s, boolean d, boolean space, boolean leftClick, boolean rightClick) {
+
+        client.sum = new Triple(0f,0f,0f);
+
+        client.cameraRotation.x = rotationX;
+        client.cameraRotation.y = rotationY;
+
+        if(w) client.cameraCoords = client.cameraCoords.add(moveForward(client));
+        if(a) client.cameraCoords = client.cameraCoords.add(moveLeft(client));
+        if(s) client.cameraCoords = client.cameraCoords.add(moveBackward(client));
+        if(d) client.cameraCoords = client.cameraCoords.add(moveRight(client));
+        if(space && !client.inAir) {
+            client.speedY = 6f;
+            client.inAir = true;
+        }
+
+        if(leftClick) {
+            Ray ray = new Ray(new Triple(client.cameraCoords), new Pair<>(client.cameraRotation), 5f);
+            if(client.grapplingEquipped && !client.grapplingHead.shot){
+                prepareShootableForFlying(ray.direction, client.grapplingHead, client);
+            }
+            else {
+                prepareBulletForFlying(ray.direction, client);
+            }
+        }
+        if(rightClick) {
+            client.grapplingEquipped = !client.grapplingEquipped;
+            client.swinging = false;
+            client.grapplingHead.shot = false;
+        }
+    }
+
+
+    private void broadCastState() throws IOException {
+        for(Client client : clients) {
+            senderBuffer.clear();
+            senderBuffer.putFloat(client.cameraCoords.x);
+            senderBuffer.putFloat(client.cameraCoords.y);
+            senderBuffer.putFloat(client.cameraCoords.z);
+
+            senderBuffer.putInt(bullets.size());
+            for (BulletHead bulletHead : bullets) {
+                senderBuffer.putFloat(bulletHead.x);
+                senderBuffer.putFloat(bulletHead.y);
+                senderBuffer.putFloat(bulletHead.z);
+                senderBuffer.putFloat(bulletHead.rotation.x);
+                senderBuffer.putFloat(bulletHead.rotation.y);
+                senderBuffer.put((byte) (bulletHead.shot ? 1 : 0));
+                senderBuffer.put((byte) (bulletHead.flying ? 1 : 0));
+            }
+            senderBuffer.put((byte)(client.heldBullet != null ? 1 : 0));
+            senderBuffer.put((byte)(client.grapplingEquipped? 1 : 0));
+
+            senderBuffer.putInt(clients.size()-1);
+            for(Client c : clients) {
+                if(c == client) continue;
+                senderBuffer.putFloat(c.cameraCoords.x);
+                senderBuffer.putFloat(c.cameraCoords.y);
+                senderBuffer.putFloat(c.cameraCoords.z);
+                senderBuffer.putFloat(c.cameraRotation.x);
+                senderBuffer.putFloat(c.cameraRotation.y);
+                senderBuffer.put((byte)(c.grapplingEquipped? 1 : 0));
+            }
+
+            byte[] data = senderBuffer.array();
+            client.packet.setData(data, 0,  data.length);
+
+            socket.send(client.packet);
         }
     }
 
 
     private void update(Client client) {
-        for(Cube cube : cubes) {
-            cube.update();
-        }
         for(DeathCube deathCube : deathCubes) {
             deathCube.update();
         }
@@ -253,42 +268,26 @@ public class SimpleMove extends Canvas implements Runnable {
         }
 
         if(client.swinging) {
-            swingAround(anchor,client);
+            swingAround(client);
         }
 
         client.grapplingHead.update();
-
-        if(!client.grapplingHead.shot){
-            client.grapplingHead.x = client.cameraCoords.x + 0.1f;
-            client.grapplingHead.y = client.cameraCoords.y;
-            client.grapplingHead.z = client.cameraCoords.z + 1f;
-        }
 
         for(BulletHead bulletHead: bullets) {
             bulletHead.update();
         }
 
-        if(client.heldBullet != null){
-            client.heldBullet.x = client.cameraCoords.x;
-            client.heldBullet.y = client.cameraCoords.y- 0.15f;
-            client.heldBullet.z = client.cameraCoords.z + 0.8f;
-
-        }
-        else if(System.currentTimeMillis() - bulletShotLastTime > 200){
+        if(client.heldBullet == null && System.currentTimeMillis() - client.bulletShotLastTime > 200){
             client.heldBullet = new BulletHead();
             client.heldBullet.x = 1000f;
         }
-
-        gun.x = client.cameraCoords.x + 0.1f;
-        gun.y = client.cameraCoords.y;
-        gun.z = client.cameraCoords.z + 0.3f;
 
         if(client.grapplingHead.shot)
             for(Cube cube : cubes) {
                 if(cube.isPointInCube(client.grapplingHead.getNodes()[16])) {
                     client.swinging = true;
                     client.grapplingHead.flying = false;
-                    anchor = new Triple(cube.x + cube.size / 2f, cube.y + cube.size / 2f, cube.z + cube.size / 2f);
+                    client.anchor = new Triple(cube.x + cube.size / 2f, cube.y + cube.size / 2f, cube.z + cube.size / 2f);
                 }
             }
 
@@ -299,10 +298,9 @@ public class SimpleMove extends Canvas implements Runnable {
                     deathCubes.remove(j);
             }
         }
-        boolean localHit = false;
         for(DeathCube deathCube : deathCubes) {
-            if(deathCube.isPointInCube(client.cameraCoords))
-                localHit = true;
+            if(deathCube.isPointInCube(client.cameraCoords)){}
+                //client Hit
         }
 
         if (deathCubeSpawnMode && System.currentTimeMillis() - deathCubeLastSpawnTime > 1000) {
@@ -322,8 +320,6 @@ public class SimpleMove extends Canvas implements Runnable {
                 bullets.remove(i);
         }
 
-        hit = localHit;
-
     }
 
     private void moveCharacter(Client client) {
@@ -336,8 +332,8 @@ public class SimpleMove extends Canvas implements Runnable {
             inputZ /= inputLength;
         }
 
-        inputX *= moveSpeed;
-        inputZ *= moveSpeed;
+        inputX *= client.moveSpeed;
+        inputZ *= client.moveSpeed;
 
         final float DRAG_MOVE = 0.1f;
         final float DRAG_IDLE = 12.0f;
@@ -377,20 +373,6 @@ public class SimpleMove extends Canvas implements Runnable {
 
     }
 
-    private void clearScreen(Graphics2D g) {
-        if(hit)
-            g.setColor(Color.RED);
-        else
-            g.setColor(Color.BLACK);
-        g.fillRect(0, 0, getWidth(), getHeight());
-    }
-
-    private void drawCrosshair(Graphics2D g) {
-        g.setColor(Color.lightGray);
-        g.fill(new Rectangle2D.Float(SCREEN_WIDTH/2f - 10f, SCREEN_HEIGHT/2f-2f, 20f, 4f));
-        g.fill(new Rectangle2D.Float(SCREEN_WIDTH/2f - 2f, SCREEN_HEIGHT/2f-10f, 4f, 20f));
-    }
-
     private Triple rotationToDirection(Pair<Float> rotation) {
         float dx = (float)(Math.cos(rotation.x) * Math.sin(rotation.y));
         float dy = (float)(Math.sin(rotation.x));
@@ -398,47 +380,41 @@ public class SimpleMove extends Canvas implements Runnable {
         return new Triple(dx, dy, dz);
     }
 
-
     public static void main(String[] args) {
-        SimpleMove canvas = new SimpleMove();
+        SimpleMove game = new SimpleMove();
 
-
-        try {
-            canvas.start();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        game.start();
 
     }
 
     private Triple moveForward(Client client) {
-        float dx = moveSpeed * (float) Math.sin(client.cameraRotation.y) * deltaTime;
-        float dz = moveSpeed * (float) Math.cos(client.cameraRotation.y) * deltaTime;
+        float dx = client.moveSpeed * (float) Math.sin(client.cameraRotation.y) * deltaTime;
+        float dz = client.moveSpeed * (float) Math.cos(client.cameraRotation.y) * deltaTime;
         return new Triple(dx,0f, dz);
     }
 
     private Triple moveBackward(Client client) {
-        float dx = -moveSpeed * (float) Math.sin(client.cameraRotation.y) * deltaTime;
-        float dz = -moveSpeed * (float) Math.cos(client.cameraRotation.y) * deltaTime;
+        float dx = -client.moveSpeed * (float) Math.sin(client.cameraRotation.y) * deltaTime;
+        float dz = -client.moveSpeed * (float) Math.cos(client.cameraRotation.y) * deltaTime;
         return new Triple(dx,0f, dz);
     }
 
     private Triple moveRight(Client client) {
-        float dx = moveSpeed * (float) Math.cos(client.cameraRotation.y) * deltaTime;
-        float dz = moveSpeed * (float) -Math.sin(client.cameraRotation.y) * deltaTime;
+        float dx = client.moveSpeed * (float) Math.cos(client.cameraRotation.y) * deltaTime;
+        float dz = client.moveSpeed * (float) -Math.sin(client.cameraRotation.y) * deltaTime;
         return new Triple(dx,0f, dz);
     }
 
     private Triple moveLeft(Client client) {
-        float dx = -moveSpeed * (float)Math.cos(client.cameraRotation.y) * deltaTime;
-        float dz = moveSpeed * (float)Math.sin(client.cameraRotation.y) * deltaTime;
+        float dx = -client.moveSpeed * (float)Math.cos(client.cameraRotation.y) * deltaTime;
+        float dz = client.moveSpeed * (float)Math.sin(client.cameraRotation.y) * deltaTime;
         return new Triple(dx,0f, dz);
     }
 
-    public void swingAround(Triple anchor, Client client) {
-        Triple toAnchor = anchor.sub(client.cameraCoords).normalize();
+    public void swingAround(Client client) {
+        Triple toAnchor = client.anchor.sub(client.cameraCoords).normalize();
         Triple tangent = toAnchor.normalize();
-        client.cameraCoords = client.cameraCoords.add(tangent.scale(moveSpeed*2 * deltaTime));
+        client.cameraCoords = client.cameraCoords.add(tangent.scale(client.moveSpeed*2 * deltaTime));
     }
 
 
@@ -450,7 +426,7 @@ public class SimpleMove extends Canvas implements Runnable {
 
         bullets.add(client.heldBullet);
         client.heldBullet = null;
-        bulletShotLastTime = System.currentTimeMillis();
+        client.bulletShotLastTime = System.currentTimeMillis();
 
     }
 

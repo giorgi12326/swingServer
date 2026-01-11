@@ -3,7 +3,6 @@ package org.example;
 import java.awt.*;
 import java.awt.geom.Line2D;
 
-import static org.example.SimpleMove.SCREEN_HEIGHT;
 
 public class Ray {
     Triple position;
