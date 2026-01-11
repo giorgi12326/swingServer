@@ -6,6 +6,7 @@ import java.awt.Color;
 import java.awt.geom.Rectangle2D;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.util.*;
@@ -15,7 +16,7 @@ public class SimpleMove extends Canvas implements Runnable {
 
     public static final float SCREEN_WIDTH = 1280f;
     public static final float SCREEN_HEIGHT = 720f;
-    public static final float moveSpeed = 10f;
+    public static final float moveSpeed = 6f;
     public static  boolean deathCubeSpawnMode = false;
     public static boolean hit = false;
     public final Set<Integer> keysDown = new HashSet<>();
@@ -39,9 +40,6 @@ public class SimpleMove extends Canvas implements Runnable {
 
 
     public static final float GRAVITY = 10f;
-    public static float speedX = 0f;
-    public static float speedY = 0f;
-    public static float speedZ = 0f;
 
 //    private boolean inAir;
 //    private Triple client.sum;
@@ -72,14 +70,15 @@ public class SimpleMove extends Canvas implements Runnable {
         }
     }
 
-    public void start() throws SocketException {
-        socket = new DatagramSocket(5555);
+    public void start() throws Exception {
+        socket = new DatagramSocket(1234, InetAddress.getByName("0.0.0.0"));
         System.out.println("Socket Created");
 
         new Thread(this).start();
 
         new Thread(() -> {
             try {
+                System.out.println("Server listening...");
 
                 while (true) {
                     byte[] buf = new byte[32];
@@ -88,14 +87,15 @@ public class SimpleMove extends Canvas implements Runnable {
                     boolean newClient = true;
                     Client client = null;
                     for(Client c : clients) {
-                        if(packet.getAddress() == c.ip) {
+                        if(packet.getAddress().toString().equals(c.ip.toString()) && packet.getPort() == c.port) {
                             client = c;
                             newClient = false;
                         }
                     }
                     if(newClient) {
-                        client = new Client(packet.getAddress());
+                        client = new Client(packet.getAddress(), packet.getPort());
                         clients.add(client);
+                        System.out.println("client connected with ip: " + packet.getAddress() + " and port: " + packet.getPort());
                     }
 
                     ByteBuffer buffer = ByteBuffer.wrap(packet.getData(), 0, packet.getLength());
@@ -119,8 +119,8 @@ public class SimpleMove extends Canvas implements Runnable {
                     if(a) client.cameraCoords = client.cameraCoords.add(moveLeft(client));
                     if(s) client.cameraCoords = client.cameraCoords.add(moveBackward(client));
                     if(d) client.cameraCoords = client.cameraCoords.add(moveRight(client));
-                    if(space) {
-                        speedY = 6f;
+                    if(space && !client.inAir) {
+                        client.speedY = 6f;
                         client.inAir = true;
                     }
 
@@ -154,7 +154,6 @@ public class SimpleMove extends Canvas implements Runnable {
     public void run() {
         try {
 
-            System.out.println("Server listening...");
 
             while (true) {
 
@@ -180,7 +179,7 @@ public class SimpleMove extends Canvas implements Runnable {
 
                     byte[] data = buffer.array();
 
-                    socket.send(new DatagramPacket(data, data.length, client.ip, 5554));
+                    socket.send(new DatagramPacket(data, data.length, client.ip, client.port));
                 }
 
                 long now = System.nanoTime();
@@ -204,8 +203,8 @@ public class SimpleMove extends Canvas implements Runnable {
             deathCube.update();
         }
         if(!client.swinging)
-            speedY -= GRAVITY * deltaTime;
-        float dy = speedY * deltaTime;
+            client.speedY -= GRAVITY * deltaTime;
+        float dy = client.speedY * deltaTime;
         client.sum.y += dy;
         client.cameraCoords.y += client.sum.y;
 
@@ -215,16 +214,16 @@ public class SimpleMove extends Canvas implements Runnable {
                     client.cameraCoords.y = cube.y - cube.size / 2 - 0.0001f;
                 } else {
                     client.cameraCoords.y = cube.y + cube.size / 2 + 0.0001f;
-                    speedY = 0f;
+                    client.speedY = 0f;
                     client.inAir = false;
                 }
-                speedY = 0f;
+                client.speedY = 0f;
 
             }
         }
         if (client.cameraCoords.y <= 0f) {
             client.cameraCoords.y = 0.0001f;
-            speedY = 0f;
+            client.speedY = 0f;
             client.inAir = false;
         }
 
@@ -232,12 +231,12 @@ public class SimpleMove extends Canvas implements Runnable {
 
         for (Cube cube : cubes) {
             if (cube.isPointInCube(client.cameraCoords)) {
-                if (speedZ > 0)
+                if (client.speedZ > 0)
                     client.cameraCoords.z = cube.z - cube.size / 2 - 0.0001f;
-                else if (speedZ < 0)
+                else if (client.speedZ < 0)
                     client.cameraCoords.z = cube.z + cube.size / 2 + 0.0001f;
 
-                speedZ = 0f;
+                client.speedZ = 0f;
             }
         }
 
@@ -334,29 +333,28 @@ public class SimpleMove extends Canvas implements Runnable {
 
         float drag = DRAG_MOVE;
 
-        float dot = speedX * inputX + speedZ * inputZ;
+        float dot = client.speedX * inputX + client.speedZ * inputZ;
 
         if (notMoving || dot < 0f) {
             drag = DRAG_IDLE;
         }
 
-        speedX -= speedX * drag * deltaTime;
-        speedZ -= speedZ * drag * deltaTime;
+        client.speedX -= client.speedX * drag * deltaTime;
+        client.speedZ -= client.speedZ * drag * deltaTime;
 
-        speedX += inputX * deltaTime;
-        speedZ += inputZ * deltaTime;
+        client.speedX += inputX * deltaTime;
+        client.speedZ += inputZ * deltaTime;
 
         float maxSpeed = 5f;
-        float combinedSpeed = (float)Math.sqrt(speedX*speedX + speedZ*speedZ);
+        float combinedSpeed = (float)Math.sqrt(client.speedX*client.speedX + client.speedZ*client.speedZ);
         if(combinedSpeed > maxSpeed) {
-            speedX = speedX / combinedSpeed * maxSpeed;
-            speedZ = speedZ / combinedSpeed * maxSpeed;
+            client.speedX = client.speedX / combinedSpeed * maxSpeed;
+            client.speedZ = client.speedZ / combinedSpeed * maxSpeed;
         }
 
-        client.cameraCoords.x += speedX * deltaTime;
-        client.cameraCoords.z += speedZ * deltaTime;
+        client.cameraCoords.x += client.speedX * deltaTime;
+        client.cameraCoords.z += client.speedZ * deltaTime;
     }
-
 
 
     private void spawnCubeRandomlyAtDistance(float radius, Client client) {
@@ -395,7 +393,7 @@ public class SimpleMove extends Canvas implements Runnable {
 
         try {
             canvas.start();
-        } catch (SocketException e) {
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
 
