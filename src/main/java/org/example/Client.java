@@ -22,7 +22,9 @@ public class Client {
     ClientInput latestInput = new ClientInput();
     final Object inputLock = new Object();
     DatagramPacket packet;
+    public long lastSecondarySwitch = System.currentTimeMillis();
 
+    Cube hitbox = new Cube(0,0,0,0.5f);
 
     float speedX = 0f;
     float speedY = 0f;

@@ -138,8 +138,11 @@ public class SimpleMove {
                         space,
                         leftClick, rightClick);
 
-                update(c);
+                updatePerClient(c);
             }
+
+            update();
+
             try {
                 broadCastState();
             } catch (IOException e) {
@@ -157,6 +160,49 @@ public class SimpleMove {
         }
     }
 
+    private void update() {
+        for(BulletHead bulletHead: bullets) {
+            bulletHead.update();
+        }
+
+        for (int i = deathCubes.size() - 1; i >= 0; i--) {
+            DeathCube deathCube = deathCubes.get(i);
+            if(deathCube.markedAsDeleted || deathCube.y < 0)
+                deathCubes.remove(i);
+        }
+
+        for (BulletHead bullet : bullets) {
+            for (int j = deathCubes.size()-1; j >= 0; j--) {
+                DeathCube deathCube = deathCubes.get(j);
+                if (deathCube.isPointInCube(bullet.getNodes()[8]))
+                    deathCubes.remove(j);
+            }
+        }
+
+        for (int i = bullets.size() - 1; i >= 0; i--) {
+            BulletHead bullet = bullets.get(i);
+            if(bullet.markAsDeleted)
+                bullets.remove(i);
+        }
+
+        for (int i = bullets.size() - 1; i >= 0; i--) {
+            BulletHead bullet = bullets.get(i);
+            for(Cube cube : cubes) {
+                if(cube.isPointInCube(bullet.getNodes()[8]))
+                    bullets.remove(i);
+            }
+        }
+
+        for (int i = bullets.size() - 1; i >= 0; i--) {
+            BulletHead bullet = bullets.get(i);
+            for(Client client : clients) {
+                if(client.hitbox.isPointInCube(bullet.getNodes()[8]))
+                    client.cameraCoords.y += 10f;
+            }
+        }
+
+    }
+
     private void useReceivedData(Client client, float rotationX, float rotationY, boolean w, boolean a, boolean s, boolean d, boolean space, boolean leftClick, boolean rightClick) {
 
         client.sum = new Triple(0f,0f,0f);
@@ -164,10 +210,10 @@ public class SimpleMove {
         client.cameraRotation.x = rotationX;
         client.cameraRotation.y = rotationY;
 
-        if(w) client.cameraCoords = client.cameraCoords.add(moveForward(client));
-        if(a) client.cameraCoords = client.cameraCoords.add(moveLeft(client));
-        if(s) client.cameraCoords = client.cameraCoords.add(moveBackward(client));
-        if(d) client.cameraCoords = client.cameraCoords.add(moveRight(client));
+        if(w) client.sum.add(moveForward(client));
+        if(a) client.sum.add(moveLeft(client));
+        if(s) client.sum.add(moveBackward(client));
+        if(d) client.sum.add(moveRight(client));
         if(space && !client.inAir) {
             client.speedY = 6f;
             client.inAir = true;
@@ -175,21 +221,19 @@ public class SimpleMove {
 
         if(leftClick) {
             Ray ray = new Ray(new Triple(client.cameraCoords), new Pair<>(client.cameraRotation), 5f);
-            if(client.grapplingEquipped && !client.grapplingHead.shot){
+            if(client.grapplingEquipped && !client.grapplingHead.shot)
                 prepareShootableForFlying(ray.direction, client.grapplingHead, client);
-            }
-            else {
+            else
                 prepareBulletForFlying(ray.direction, client);
-                System.out.println(bullets.size());
-            }
         }
-        if(rightClick) {
+        if(rightClick && (System.currentTimeMillis() - client.lastSecondarySwitch) > 200) {
+            client.lastSecondarySwitch = System.currentTimeMillis();
             client.grapplingEquipped = !client.grapplingEquipped;
             client.swinging = false;
             client.grapplingHead.shot = false;
+            client.grapplingHead.flying = false;
         }
     }
-
 
     private void broadCastState() throws IOException {
         for(Client client : clients) {
@@ -247,7 +291,7 @@ public class SimpleMove {
     }
 
 
-    private void update(Client client) {
+    private void updatePerClient(Client client) {
 
         if(!client.swinging)
             client.speedY -= GRAVITY * deltaTime;
@@ -292,52 +336,23 @@ public class SimpleMove {
 
         client.grapplingHead.update();
 
-        for(BulletHead bulletHead: bullets) {
-            bulletHead.update();
-        }
-
         if(client.heldBullet == null && System.currentTimeMillis() - client.bulletShotLastTime > 1000){
             client.heldBullet = new BulletHead();
         }
 
         if(client.grapplingHead.shot)
             for(Cube cube : cubes) {
-                if(cube.isPointInCube(client.grapplingHead.getNodes()[16])) {
+                if(cube.isPointInCube(client.grapplingHead.getNodes()[17])) {
                     client.swinging = true;
                     client.grapplingHead.flying = false;
                     client.anchor = new Triple(cube.x + cube.size / 2f, cube.y + cube.size / 2f, cube.z + cube.size / 2f);
                 }
             }
 
-        for (BulletHead bullet : bullets) {
-            for (int j = deathCubes.size()-1; j >= 0; j--) {
-                DeathCube deathCube = deathCubes.get(j);
-                if (deathCube.isPointInCube(bullet.getNodes()[8]))
-                    deathCubes.remove(j);
-            }
-        }
-        for(DeathCube deathCube : deathCubes) {
-            if(deathCube.isPointInCube(client.cameraCoords)){}
-                //client Hit
-        }
-
         if (deathCubeSpawnMode && System.currentTimeMillis() - deathCubeLastSpawnTime > 1000) {
             deathCubeLastSpawnTime = System.currentTimeMillis();
             spawnCubeRandomlyAtDistance(64f, client);
         }
-
-        for (int i = deathCubes.size() - 1; i >= 0; i--) {
-            DeathCube deathCube = deathCubes.get(i);
-            if(deathCube.markedAsDeleted || deathCube.y < 0)
-                deathCubes.remove(i);
-        }
-
-//        for (int i = bullets.size() - 1; i >= 0; i--) {
-//            BulletHead bullet = bullets.get(i);
-//            if(bullet.markAsDeleted)
-//                bullets.remove(i);
-//        }
-
     }
 
     private void moveCharacter(Client client) {
@@ -354,14 +369,14 @@ public class SimpleMove {
         inputZ *= client.moveSpeed;
 
         final float DRAG_MOVE = 0.1f;
-        final float DRAG_IDLE = 12.0f;
+        final float DRAG_IDLE = 30.0f;
         boolean notMoving = client.sum.x == 0 && client.sum.z == 0;
 
         float drag = DRAG_MOVE;
 
         float dot = client.speedX * inputX + client.speedZ * inputZ;
 
-        if (notMoving || dot < 0f) {
+        if ((notMoving && !client.inAir) || (dot < 0f && !client.inAir)) {
             drag = DRAG_IDLE;
         }
 
@@ -461,5 +476,7 @@ public class SimpleMove {
         shootable.z = newPosition.z;
         shootable.shot = true;
         shootable.flying = true;
+        client.heldBullet = null; //fix if more bullets
+        client.bulletShotLastTime = System.currentTimeMillis();
     }
 }

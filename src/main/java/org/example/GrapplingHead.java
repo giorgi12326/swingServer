@@ -17,6 +17,7 @@ public class GrapplingHead extends Shootable{
         this.y = y;
         this.z = z;
         nodes = getNodes();
+        moveSpeed = 40f;
     }
     static{
         edges.add(new Pair<>(0,1));
