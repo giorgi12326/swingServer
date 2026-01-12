@@ -8,7 +8,7 @@ public class BulletHead extends Shootable {
 
     public BulletHead() {
         nodes = getNodes();
-        moveSpeed = 80f;
+        moveSpeed = 10f;
     }
 
     static{

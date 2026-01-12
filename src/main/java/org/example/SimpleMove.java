@@ -13,7 +13,7 @@ public class SimpleMove {
     ByteBuffer senderBuffer = ByteBuffer.allocate(4096); // 4 bytes per float * 3
 
     public static  boolean deathCubeSpawnMode = false;
-    public static float deltaTime = 0f;
+    public static float deltaTime = 1f;
     long lastTime = System.nanoTime();
 
     long deathCubeLastSpawnTime = System.currentTimeMillis();
@@ -51,7 +51,7 @@ public class SimpleMove {
 
     public void start()  {
         try {
-            socket = new DatagramSocket(1234, InetAddress.getByName("0.0.0.0"));
+            socket = new DatagramSocket(1247, InetAddress.getByName("0.0.0.0"));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -66,7 +66,9 @@ public class SimpleMove {
                 ByteBuffer readerBuffer = ByteBuffer.wrap(buf);
                 while (true) {
                     socket.receive(packet);
-                    readerBuffer.clear();
+
+                    readerBuffer.position(0);
+                    readerBuffer.limit(packet.getLength());
 
                     boolean w = readerBuffer.get() == 1;
                     boolean a = readerBuffer.get() == 1;
@@ -87,7 +89,7 @@ public class SimpleMove {
                         }
                     }
                     if(newClient) {
-                        client = new Client(packet.getAddress(), packet.getPort(),readerBuffer);
+                        client = new Client(packet.getAddress(), packet.getPort(),senderBuffer);
                         clients.add(client);
                         System.out.println("client connected with ip: " + packet.getAddress() + " and port: " + packet.getPort());
                     }
@@ -151,7 +153,7 @@ public class SimpleMove {
             try {
                 long sleepTime = Math.max(0, TICK_DURATION_MS - tickDuration);
 
-                Thread.sleep(sleepTime);
+                Thread.sleep((int)(Math.random()*32));
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
@@ -181,6 +183,7 @@ public class SimpleMove {
             }
             else {
                 prepareBulletForFlying(ray.direction, client);
+                System.out.println(bullets.size());
             }
         }
         if(rightClick) {
@@ -222,6 +225,8 @@ public class SimpleMove {
                 senderBuffer.put((byte)(c.grapplingEquipped? 1 : 0));
             }
 
+            senderBuffer.putLong(System.currentTimeMillis());
+
             byte[] data = senderBuffer.array();
             client.packet.setData(data, 0,  data.length);
 
@@ -250,7 +255,6 @@ public class SimpleMove {
                     client.inAir = false;
                 }
                 client.speedY = 0f;
-
             }
         }
         if (client.cameraCoords.y <= 0f) {
@@ -284,7 +288,7 @@ public class SimpleMove {
 
         if(client.heldBullet == null && System.currentTimeMillis() - client.bulletShotLastTime > 200){
             client.heldBullet = new BulletHead();
-            client.heldBullet.x = 1000f;
+//            client.heldBullet.x = 1000f;
         }
 
         if(client.grapplingHead.shot)
@@ -319,11 +323,11 @@ public class SimpleMove {
                 deathCubes.remove(i);
         }
 
-        for (int i = bullets.size() - 1; i >= 0; i--) {
-            BulletHead bullet = bullets.get(i);
-            if(bullet.markAsDeleted)
-                bullets.remove(i);
-        }
+//        for (int i = bullets.size() - 1; i >= 0; i--) {
+//            BulletHead bullet = bullets.get(i);
+//            if(bullet.markAsDeleted)
+//                bullets.remove(i);
+//        }
 
     }
 
@@ -426,13 +430,17 @@ public class SimpleMove {
     private void prepareBulletForFlying(Pair<Float> direction, Client client) {
         if(client.heldBullet == null)
             return;
+        BulletHead e = new BulletHead();
+        e.x = client.heldBullet.x;
+        e.y = client.heldBullet.y;
+        e.z = client.heldBullet.z;
+        e.rotation = new Pair<>(e.rotation.x,e.rotation.y);
 
-        prepareShootableForFlying(direction, client.heldBullet, client);
-
-        bullets.add(client.heldBullet);
         client.heldBullet = null;
-        client.bulletShotLastTime = System.currentTimeMillis();
 
+        prepareShootableForFlying(direction, e, client);
+        bullets.add(e);
+        client.bulletShotLastTime = System.currentTimeMillis();
     }
 
     private void prepareShootableForFlying(Pair<Float> direction, Shootable shootable, Client client) {
@@ -445,6 +453,4 @@ public class SimpleMove {
         shootable.shot = true;
         shootable.flying = true;
     }
-
-
 }

@@ -24,9 +24,9 @@ public abstract class Shootable extends Projectable{
             x += direction.x * moveSpeed * deltaTime;
             y += direction.y * moveSpeed * deltaTime;
             z += direction.z * moveSpeed * deltaTime;
-            if(Math.abs(x) > 300f ||
-                    Math.abs(y) > 300f ||
-                    Math.abs(z) > 300f)
+            if(Math.abs(x) > 800f ||
+                    Math.abs(y) > 800f ||
+                    Math.abs(z) > 800f)
                 markAsDeleted = true;
 
         }

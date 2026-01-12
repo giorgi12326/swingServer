@@ -30,7 +30,6 @@ public class Client {
     long bulletShotLastTime = System.currentTimeMillis();
 
 
-
     public Client(InetAddress inetAddress, int port , ByteBuffer buffer) {
         this.ip = inetAddress;
         this.port = port;
