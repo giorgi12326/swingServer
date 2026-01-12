@@ -22,7 +22,10 @@ public class Triple {
     }
 
     public Triple add(Triple other) {
-        return new Triple(x + other.x, y + other.y, z + other.z);
+        x += other.x;
+        y += other.y;
+        z += other.z;
+        return this;
     }
 
     public Triple sub(Triple other) {

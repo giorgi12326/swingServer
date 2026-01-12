@@ -27,8 +27,6 @@ public class SimpleMove {
 
     private DatagramSocket socket;
 
-
-
     public SimpleMove() {
         this.cubes = new ArrayList<>();
         cubes.add(new Cube(0.5f,0.5f, 3.5f,1f));
@@ -40,7 +38,6 @@ public class SimpleMove {
         cubes.add(new Cube(0.5f,4.5f, 18.5f,1f));
         cubes.add(new Cube(0.5f,4.5f, 23.5f,1f));
         cubes.add(new Cube(0.5f,4.5f, 30.5f,1f));
-
 
         for (int i = -10; i < 10; i++) {
             for (int j = -10; j < 10; j++) {
@@ -213,6 +210,14 @@ public class SimpleMove {
             }
             senderBuffer.put((byte)(client.heldBullet != null ? 1 : 0));
             senderBuffer.put((byte)(client.grapplingEquipped? 1 : 0));
+            senderBuffer.put((byte)(client.grapplingHead.shot? 1 : 0));
+            senderBuffer.put((byte)(client.grapplingHead.flying? 1 : 0));
+
+            senderBuffer.putFloat(client.grapplingHead.x);
+            senderBuffer.putFloat(client.grapplingHead.y);
+            senderBuffer.putFloat(client.grapplingHead.z);
+            senderBuffer.putFloat(client.grapplingHead.rotation.x);
+            senderBuffer.putFloat(client.grapplingHead.rotation.y);
 
             senderBuffer.putInt(clients.size()-1);
             for(Client c : clients) {
@@ -222,7 +227,14 @@ public class SimpleMove {
                 senderBuffer.putFloat(c.cameraCoords.z);
                 senderBuffer.putFloat(c.cameraRotation.x);
                 senderBuffer.putFloat(c.cameraRotation.y);
+
+                senderBuffer.putFloat(client.grapplingHead.x);
+                senderBuffer.putFloat(client.grapplingHead.y);
+                senderBuffer.putFloat(client.grapplingHead.z);
+                senderBuffer.putFloat(client.grapplingHead.rotation.x);
+                senderBuffer.putFloat(client.grapplingHead.rotation.y);
                 senderBuffer.put((byte)(c.grapplingEquipped? 1 : 0));
+
             }
 
             senderBuffer.putLong(System.currentTimeMillis());
@@ -236,9 +248,7 @@ public class SimpleMove {
 
 
     private void update(Client client) {
-        for(DeathCube deathCube : deathCubes) {
-            deathCube.update();
-        }
+
         if(!client.swinging)
             client.speedY -= GRAVITY * deltaTime;
         float dy = client.speedY * deltaTime;
@@ -286,9 +296,8 @@ public class SimpleMove {
             bulletHead.update();
         }
 
-        if(client.heldBullet == null && System.currentTimeMillis() - client.bulletShotLastTime > 200){
+        if(client.heldBullet == null && System.currentTimeMillis() - client.bulletShotLastTime > 1000){
             client.heldBullet = new BulletHead();
-//            client.heldBullet.x = 1000f;
         }
 
         if(client.grapplingHead.shot)
@@ -446,7 +455,7 @@ public class SimpleMove {
     private void prepareShootableForFlying(Pair<Float> direction, Shootable shootable, Client client) {
         shootable.direction = rotationToDirection(direction);
         shootable.rotation = new Pair<>(client.cameraRotation.x, client.cameraRotation.y);
-        Triple newPosition = new Triple(shootable.x, shootable.y, shootable.z).rotateXY(client.cameraCoords, shootable.rotation);
+        Triple newPosition = new Triple(client.cameraCoords.x, client.cameraCoords.y - 0.15f, client.cameraCoords.z + 0.8f).rotateXY(client.cameraCoords, shootable.rotation);
         shootable.x = newPosition.x;
         shootable.y = newPosition.y;
         shootable.z = newPosition.z;
