@@ -68,4 +68,14 @@ public class Cube {
                 Math.abs(z - position.z) <= size / 2;
     }
 
+    public boolean isLineIntersectingCube(Triple start, Triple end){
+        Triple dir = end.sub(start);
+        int steps = (int)(dir.length() / (size / 2)); // smaller step for bigger bullets or cubes
+        for (int i = 0; i <= Math.max(steps,1); i++) {
+            Triple point = start.add(dir.mul(i / Math.max(steps,1)));
+            if (isPointInCube(point)) return true;
+        }
+        return false;
+    }
+
 }

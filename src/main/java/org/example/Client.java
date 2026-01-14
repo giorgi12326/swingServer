@@ -23,14 +23,14 @@ public class Client {
     final Object inputLock = new Object();
     DatagramPacket packet;
     public long lastSecondarySwitch = System.currentTimeMillis();
+    long time;
 
-    Cube hitbox = new Cube(0,0,0,0.5f);
+    Cube hitbox = new Cube(0,0,0,1f);
 
     float speedX = 0f;
     float speedY = 0f;
     float speedZ = 0f;
     long bulletShotLastTime = System.currentTimeMillis();
-
 
     public Client(InetAddress inetAddress, int port , ByteBuffer buffer) {
         this.ip = inetAddress;

@@ -28,6 +28,13 @@ public class Triple {
         return this;
     }
 
+    public Triple mul(int value) {
+        x *= value;
+        y *= value;
+        z *= value;
+        return this;
+    }
+
     public Triple sub(Triple other) {
         return new Triple(x - other.x, y - other.y, z - other.z);
     }

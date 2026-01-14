@@ -14,6 +14,9 @@ public abstract class Shootable extends Projectable{
     public float moveSpeed = 20f;
     public boolean markAsDeleted;
 
+    float prevX;
+    float prevY;
+    float prevZ;
 
     public abstract Triple[] getNodes();
 
@@ -21,6 +24,9 @@ public abstract class Shootable extends Projectable{
 
     public void update() {
         if(shot && flying){
+            prevX = x;
+            prevY = y;
+            prevZ = z;
             x += direction.x * moveSpeed * deltaTime;
             y += direction.y * moveSpeed * deltaTime;
             z += direction.z * moveSpeed * deltaTime;

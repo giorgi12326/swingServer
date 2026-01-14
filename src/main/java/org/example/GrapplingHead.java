@@ -16,6 +16,11 @@ public class GrapplingHead extends Shootable{
         this.x = x;
         this.y = y;
         this.z = z;
+
+        prevX = x;
+        prevY = y;
+        prevZ = z;
+
         nodes = getNodes();
         moveSpeed = 40f;
     }

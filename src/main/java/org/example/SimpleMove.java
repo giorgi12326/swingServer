@@ -76,6 +76,7 @@ public class SimpleMove {
                     boolean rightClick = readerBuffer.get() == 1;
                     float rotationX = readerBuffer.getFloat();
                     float rotationY = readerBuffer.getFloat();
+                    long clientTime = readerBuffer.getLong();
 
                     boolean newClient = true;
                     Client client = null;
@@ -91,7 +92,7 @@ public class SimpleMove {
                         System.out.println("client connected with ip: " + packet.getAddress() + " and port: " + packet.getPort());
                     }
 
-                    synchronized(client.inputLock) {
+//                    synchronized(client.inputLock) {
                         client.latestInput.w = w;
                         client.latestInput.a = a;
                         client.latestInput.s = s;
@@ -101,7 +102,8 @@ public class SimpleMove {
                         client.latestInput.rightClick = rightClick;
                         client.latestInput.rotationX = rotationX;
                         client.latestInput.rotationY = rotationY;
-                    }
+                        client.time = clientTime;
+//                    }
 
                 }
             } catch (Exception e) {
@@ -120,7 +122,7 @@ public class SimpleMove {
                 boolean w, a, s, d, space, leftClick, rightClick;
                 float rotationX, rotationY;
 
-                synchronized (c.inputLock) {
+//                synchronized (c.inputLock) {
                     w = c.latestInput.w;
                     a = c.latestInput.a;
                     s = c.latestInput.s;
@@ -131,7 +133,7 @@ public class SimpleMove {
                     rotationX = c.latestInput.rotationX;
                     rotationY = c.latestInput.rotationY;
 
-                }
+//                }
                 useReceivedData(c,
                         rotationX, rotationY,
                         w, a, s, d,
@@ -149,11 +151,11 @@ public class SimpleMove {
                 throw new RuntimeException(e);
             }
 
-            long tickDuration =  System.currentTimeMillis() - tickStart;
+            long tickDuration = System.currentTimeMillis() - tickStart;
+            long sleep = Math.max(0, TICK_DURATION_MS - tickDuration);
             try {
-                long sleepTime = Math.max(0, TICK_DURATION_MS - tickDuration);
 
-                Thread.sleep((int)(Math.random()*32));
+                Thread.sleep((int)(sleep));
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
@@ -193,10 +195,17 @@ public class SimpleMove {
             }
         }
 
+        Triple temp = new Triple(0f,0f,0f); // one-time allocation
         for (int i = bullets.size() - 1; i >= 0; i--) {
             BulletHead bullet = bullets.get(i);
+            temp.x = bullet.getNodes()[8].x;
+            temp.y = bullet.getNodes()[8].y;
+            temp.z = bullet.getNodes()[8].z;
+
             for(Client client : clients) {
-                if(client.hitbox.isPointInCube(bullet.getNodes()[8]))
+                if(client.hitbox.isLineIntersectingCube(
+                        new Triple(bullet.prevX, bullet.prevY, bullet.prevZ),
+                        new Triple(bullet.x, bullet.y, bullet.z)))
                     client.cameraCoords.y += 10f;
             }
         }
@@ -272,17 +281,19 @@ public class SimpleMove {
                 senderBuffer.putFloat(c.cameraRotation.x);
                 senderBuffer.putFloat(c.cameraRotation.y);
 
-                senderBuffer.putFloat(client.grapplingHead.x);
-                senderBuffer.putFloat(client.grapplingHead.y);
-                senderBuffer.putFloat(client.grapplingHead.z);
-                senderBuffer.putFloat(client.grapplingHead.rotation.x);
-                senderBuffer.putFloat(client.grapplingHead.rotation.y);
+                senderBuffer.putFloat(c.grapplingHead.x);
+                senderBuffer.putFloat(c.grapplingHead.y);
+                senderBuffer.putFloat(c.grapplingHead.z);
+                senderBuffer.putFloat(c.grapplingHead.rotation.x);
+                senderBuffer.putFloat(c.grapplingHead.rotation.y);
                 senderBuffer.put((byte)(c.grapplingEquipped? 1 : 0));
 
             }
 
-            senderBuffer.putLong(System.currentTimeMillis());
+            senderBuffer.putLong(client.time);
+            senderBuffer.putLong(System.currentTimeMillis() + 4000);
 
+            System.out.println(System.currentTimeMillis());
             byte[] data = senderBuffer.array();
             client.packet.setData(data, 0,  data.length);
 
@@ -336,7 +347,7 @@ public class SimpleMove {
 
         client.grapplingHead.update();
 
-        if(client.heldBullet == null && System.currentTimeMillis() - client.bulletShotLastTime > 1000){
+        if(client.heldBullet == null && System.currentTimeMillis() - client.bulletShotLastTime > 333){
             client.heldBullet = new BulletHead();
         }
 
@@ -353,6 +364,9 @@ public class SimpleMove {
             deathCubeLastSpawnTime = System.currentTimeMillis();
             spawnCubeRandomlyAtDistance(64f, client);
         }
+        client.hitbox.x = client.cameraCoords.x;
+        client.hitbox.y = client.cameraCoords.y;
+        client.hitbox.z = client.cameraCoords.z;
     }
 
     private void moveCharacter(Client client) {
@@ -455,9 +469,6 @@ public class SimpleMove {
         if(client.heldBullet == null)
             return;
         BulletHead e = new BulletHead();
-        e.x = client.heldBullet.x;
-        e.y = client.heldBullet.y;
-        e.z = client.heldBullet.z;
         e.rotation = new Pair<>(e.rotation.x,e.rotation.y);
 
         client.heldBullet = null;
