@@ -14,6 +14,7 @@ public class Client {
     Pair<Float> cameraRotation = new Pair<>(0f,0f);
     BulletHead heldBullet = new BulletHead();
     GrapplingHead grapplingHead = new GrapplingHead(0,0f,0);
+    byte state = 0;
     Triple anchor;
     boolean swinging;
     boolean grapplingEquipped;

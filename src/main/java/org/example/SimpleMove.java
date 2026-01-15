@@ -1,5 +1,7 @@
 package org.example;
 
+import org.example.powerUp.PowerUp;
+
 import java.io.IOException;
 import java.net.*;
 import java.nio.ByteBuffer;
@@ -22,6 +24,7 @@ public class SimpleMove {
     List<DeathCube> deathCubes = new ArrayList<>();
     List<Triple> floor = new ArrayList<>();
     public static List<BulletHead> bullets = new ArrayList<>();
+    List<PowerUp> powerUps = new ArrayList<>();
 
     public static final float GRAVITY = 10f;
 
@@ -48,7 +51,7 @@ public class SimpleMove {
 
     public void start()  {
         try {
-            socket = new DatagramSocket(1247, InetAddress.getByName("0.0.0.0"));
+            socket = new DatagramSocket(1234, InetAddress.getByName("0.0.0.0"));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -67,17 +70,6 @@ public class SimpleMove {
                     readerBuffer.position(0);
                     readerBuffer.limit(packet.getLength());
 
-                    boolean w = readerBuffer.get() == 1;
-                    boolean a = readerBuffer.get() == 1;
-                    boolean s = readerBuffer.get() == 1;
-                    boolean d = readerBuffer.get() == 1;
-                    boolean space = readerBuffer.get() == 1;
-                    boolean leftClick = readerBuffer.get() == 1;
-                    boolean rightClick = readerBuffer.get() == 1;
-                    float rotationX = readerBuffer.getFloat();
-                    float rotationY = readerBuffer.getFloat();
-                    long clientTime = readerBuffer.getLong();
-
                     boolean newClient = true;
                     Client client = null;
                     for(Client c : clients) {
@@ -93,16 +85,16 @@ public class SimpleMove {
                     }
 
 //                    synchronized(client.inputLock) {
-                        client.latestInput.w = w;
-                        client.latestInput.a = a;
-                        client.latestInput.s = s;
-                        client.latestInput.d = d;
-                        client.latestInput.space = space;
-                        client.latestInput.leftClick = leftClick;
-                        client.latestInput.rightClick = rightClick;
-                        client.latestInput.rotationX = rotationX;
-                        client.latestInput.rotationY = rotationY;
-                        client.time = clientTime;
+                        client.latestInput.w = readerBuffer.get() == 1;
+                        client.latestInput.a = readerBuffer.get() == 1;
+                        client.latestInput.s = readerBuffer.get() == 1;
+                        client.latestInput.d = readerBuffer.get() == 1;
+                        client.latestInput.space = readerBuffer.get() == 1;
+                        client.latestInput.leftClick = readerBuffer.get() == 1;
+                        client.latestInput.rightClick = readerBuffer.get() == 1;
+                        client.latestInput.rotationX = readerBuffer.getFloat();
+                        client.latestInput.rotationY = readerBuffer.getFloat();
+                        client.time = readerBuffer.getLong();
 //                    }
 
                 }
@@ -134,22 +126,13 @@ public class SimpleMove {
                     rotationY = c.latestInput.rotationY;
 
 //                }
-                useReceivedData(c,
-                        rotationX, rotationY,
-                        w, a, s, d,
-                        space,
-                        leftClick, rightClick);
+                useReceivedData(c, rotationX, rotationY, w, a, s, d, space, leftClick, rightClick);
 
                 updatePerClient(c);
             }
 
             update();
-
-            try {
-                broadCastState();
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
+            broadCastState();
 
             long tickDuration = System.currentTimeMillis() - tickStart;
             long sleep = Math.max(0, TICK_DURATION_MS - tickDuration);
@@ -235,6 +218,7 @@ public class SimpleMove {
             else
                 prepareBulletForFlying(ray.direction, client);
         }
+
         if(rightClick && (System.currentTimeMillis() - client.lastSecondarySwitch) > 200) {
             client.lastSecondarySwitch = System.currentTimeMillis();
             client.grapplingEquipped = !client.grapplingEquipped;
@@ -244,7 +228,7 @@ public class SimpleMove {
         }
     }
 
-    private void broadCastState() throws IOException {
+    private void broadCastState() {
         for(Client client : clients) {
             senderBuffer.clear();
             senderBuffer.putFloat(client.cameraCoords.x);
@@ -287,17 +271,19 @@ public class SimpleMove {
                 senderBuffer.putFloat(c.grapplingHead.rotation.x);
                 senderBuffer.putFloat(c.grapplingHead.rotation.y);
                 senderBuffer.put((byte)(c.grapplingEquipped? 1 : 0));
-
             }
 
             senderBuffer.putLong(client.time);
             senderBuffer.putLong(System.currentTimeMillis() + 4000);
 
-            System.out.println(System.currentTimeMillis());
             byte[] data = senderBuffer.array();
-            client.packet.setData(data, 0,  data.length);
-
-            socket.send(client.packet);
+            client.packet.setData(data, 0,  senderBuffer.position());
+            System.out.println(senderBuffer.position());
+            try {
+                socket.send(client.packet);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
@@ -336,7 +322,6 @@ public class SimpleMove {
                     client.cameraCoords.z = cube.z - cube.size / 2 - 0.0001f;
                 else if (client.speedZ < 0)
                     client.cameraCoords.z = cube.z + cube.size / 2 + 0.0001f;
-
                 client.speedZ = 0f;
             }
         }
@@ -462,8 +447,15 @@ public class SimpleMove {
         Triple toAnchor = client.anchor.sub(client.cameraCoords).normalize();
         Triple tangent = toAnchor.normalize();
         client.cameraCoords = client.cameraCoords.add(tangent.scale(client.moveSpeed*2 * deltaTime));
+        if(client.anchor.sub(client.cameraCoords).length() <= 1f) {
+            client.inAir = true;
+            client.speedY += 10f;
+            client.swinging = false;
+            client.grapplingEquipped = false;
+            client.grapplingHead.shot = false;
+            client.grapplingHead.flying = false;
+        }
     }
-
 
     private void prepareBulletForFlying(Pair<Float> direction, Client client) {
         if(client.heldBullet == null)
