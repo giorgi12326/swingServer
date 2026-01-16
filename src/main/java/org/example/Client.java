@@ -9,6 +9,7 @@ public class Client {
     int health = 100;
     InetAddress ip;
     public int port;
+    long timeOfDeathLocal = 0;
 
     Triple sum = new Triple(0f,0f,0f);
     Triple cameraCoords = new Triple(0f,0f,0f);

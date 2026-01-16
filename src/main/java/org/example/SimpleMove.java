@@ -233,6 +233,7 @@ public class SimpleMove {
     private void broadCastState() {
         for(Client client : clients) {
             senderBuffer.clear();
+
             senderBuffer.putFloat(client.cameraCoords.x);
             senderBuffer.putFloat(client.cameraCoords.y);
             senderBuffer.putFloat(client.cameraCoords.z);
@@ -291,7 +292,6 @@ public class SimpleMove {
     }
 
     private void updatePerClient(Client client) {
-
         if(!client.swinging)
             client.speedY -= GRAVITY * deltaTime;
         float dy = client.speedY * deltaTime;
@@ -354,6 +354,14 @@ public class SimpleMove {
         client.hitbox.x = client.cameraCoords.x;
         client.hitbox.y = client.cameraCoords.y;
         client.hitbox.z = client.cameraCoords.z;
+
+        if(client.health <= 0) {
+            client.cameraCoords.x = 0;
+            client.cameraCoords.y = 20;
+            client.cameraCoords.x = 0;
+            if(System.currentTimeMillis() - client.timeOfDeathLocal > 5000)
+                client.health = 100;
+        }
     }
 
     private void moveCharacter(Client client) {
