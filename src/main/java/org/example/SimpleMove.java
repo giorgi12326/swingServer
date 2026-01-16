@@ -188,8 +188,10 @@ public class SimpleMove {
             for(Client client : clients) {
                 if(client.hitbox.isLineIntersectingCube(
                         new Triple(bullet.prevX, bullet.prevY, bullet.prevZ),
-                        new Triple(bullet.x, bullet.y, bullet.z)))
+                        new Triple(bullet.x, bullet.y, bullet.z))) {
                     client.cameraCoords.y += 10f;
+                    client.health -= 10;
+                }
             }
         }
 
@@ -234,6 +236,7 @@ public class SimpleMove {
             senderBuffer.putFloat(client.cameraCoords.x);
             senderBuffer.putFloat(client.cameraCoords.y);
             senderBuffer.putFloat(client.cameraCoords.z);
+            senderBuffer.putInt(client.health);
 
             senderBuffer.putInt(bullets.size());
             for (BulletHead bulletHead : bullets) {
@@ -286,7 +289,6 @@ public class SimpleMove {
             }
         }
     }
-
 
     private void updatePerClient(Client client) {
 
