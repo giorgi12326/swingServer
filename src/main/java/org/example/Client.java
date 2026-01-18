@@ -6,6 +6,7 @@ import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 
 public class Client {
+    public boolean isDead;
     int health = 100;
     InetAddress ip;
     public int port;

@@ -190,7 +190,7 @@ public class SimpleMove {
                         new Triple(bullet.prevX, bullet.prevY, bullet.prevZ),
                         new Triple(bullet.x, bullet.y, bullet.z))) {
                     client.cameraCoords.y += 10f;
-                    client.health -= 10;
+                    client.health -= 50;
                 }
             }
         }
@@ -199,6 +199,8 @@ public class SimpleMove {
 
     private void useReceivedData(Client client, float rotationX, float rotationY, boolean w, boolean a, boolean s, boolean d, boolean space, boolean leftClick, boolean rightClick) {
 
+        if(client.isDead)
+            return;
         client.sum = new Triple(0f,0f,0f);
 
         client.cameraRotation.x = rotationX;
@@ -292,6 +294,21 @@ public class SimpleMove {
     }
 
     private void updatePerClient(Client client) {
+        if(client.isDead && System.currentTimeMillis() - client.timeOfDeathLocal > 5000) {
+            client.health = 100;
+            client.isDead = false;
+        }
+
+        if(client.health <= 0 && !client.isDead) {
+            client.cameraCoords.x = 0;
+            client.cameraCoords.y = 20;
+            client.cameraCoords.z = 0;
+            client.isDead = true;
+            client.timeOfDeathLocal = System.currentTimeMillis();
+        }
+
+        if(client.isDead) return;
+
         if(!client.swinging)
             client.speedY -= GRAVITY * deltaTime;
         float dy = client.speedY * deltaTime;
@@ -355,13 +372,7 @@ public class SimpleMove {
         client.hitbox.y = client.cameraCoords.y;
         client.hitbox.z = client.cameraCoords.z;
 
-        if(client.health <= 0) {
-            client.cameraCoords.x = 0;
-            client.cameraCoords.y = 20;
-            client.cameraCoords.x = 0;
-            if(System.currentTimeMillis() - client.timeOfDeathLocal > 5000)
-                client.health = 100;
-        }
+
     }
 
     private void moveCharacter(Client client) {
