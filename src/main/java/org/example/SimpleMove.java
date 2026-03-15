@@ -21,7 +21,7 @@ public class SimpleMove {
     long deathCubeLastSpawnTime = System.currentTimeMillis();
 
     List<Cube> cubes;
-    List<DeathCube> deathCubes = new ArrayList<>();
+    public static List<DeathCube> deathCubes = new ArrayList<>();
     List<Triple> floor = new ArrayList<>();
     public static List<BulletHead> bullets = new ArrayList<>();
     List<PowerUp> powerUps = new ArrayList<>();
@@ -102,9 +102,7 @@ public class SimpleMove {
     }
 
     private void update() {
-        for(BulletHead bulletHead: bullets) {
-            bulletHead.update();
-        }
+        bullets.forEach(Shootable::update);
 
         for (int i = deathCubes.size() - 1; i >= 0; i--) {
             DeathCube deathCube = deathCubes.get(i);
@@ -162,22 +160,26 @@ public class SimpleMove {
         client.cameraRotation.x = rotationX;
         client.cameraRotation.y = rotationY;
 
-        if(w) client.sum.add(moveForward(client));
-        if(a) client.sum.add(moveLeft(client));
-        if(s) client.sum.add(moveBackward(client));
-        if(d) client.sum.add(moveRight(client));
+        if(w) client.sum.add(client.moveForward());
+        if(a) client.sum.add(client.moveLeft());
+        if(s) client.sum.add(client.moveBackward());
+        if(d) client.sum.add(client.moveRight());
         if(space && !client.inAir) {
             client.speedY = 6f;
             client.inAir = true;
         }
 
         if(leftClick) {
-            Ray ray = new Ray(new Triple(client.cameraCoords), new Pair<>(client.cameraRotation), 5f);
             if(client.grapplingEquipped && !client.grapplingHead.shot)
-                prepareShootableForFlying(ray.direction, client.grapplingHead, client);
-            else
-                prepareBulletForFlying(ray.direction, client);
+                client.grapplingHead.prepareShootableForFlying(client);
+            else {
+                if(client.heldBullet != null) {
+                    BulletHead.generatePreparedBulletForAndAddToList(client);
+                    client.shotBulletHandleState();
+                }
+            }
         }
+
 
         if(rightClick && (System.currentTimeMillis() - client.lastSecondarySwitch) > 200) {
             client.lastSecondarySwitch = System.currentTimeMillis();
@@ -289,7 +291,7 @@ public class SimpleMove {
             client.inAir = false;
         }
 
-        moveCharacter(client);
+        client.moveCharacter();
 
         for (Cube cube : cubes) {
             if (cube.isPointInCube(client.cameraCoords)) {
@@ -302,7 +304,7 @@ public class SimpleMove {
         }
 
         if(client.swinging) {
-            swingAround(client);
+            client.swingAround();
         }
 
         client.grapplingHead.update();
@@ -320,143 +322,14 @@ public class SimpleMove {
                 }
             }
 
-        if (deathCubeSpawnMode && System.currentTimeMillis() - deathCubeLastSpawnTime > 1000) {
-            deathCubeLastSpawnTime = System.currentTimeMillis();
-            spawnCubeRandomlyAtDistance(64f, client);
-        }
         client.hitbox.x = client.cameraCoords.x;
         client.hitbox.y = client.cameraCoords.y;
         client.hitbox.z = client.cameraCoords.z;
-
-
-    }
-
-    private void moveCharacter(Client client) {
-        float inputX = client.sum.x;
-        float inputZ = client.sum.z;
-
-        float inputLength = (float)Math.sqrt(inputX*inputX + inputZ*inputZ);
-        if(inputLength > 0.001f) {
-            inputX /= inputLength;
-            inputZ /= inputLength;
-        }
-
-        inputX *= client.moveSpeed;
-        inputZ *= client.moveSpeed;
-
-        final float DRAG_MOVE = 0.1f;
-        final float DRAG_IDLE = 30.0f;
-        boolean notMoving = client.sum.x == 0 && client.sum.z == 0;
-
-        float drag = DRAG_MOVE;
-
-        float dot = client.speedX * inputX + client.speedZ * inputZ;
-
-        if ((notMoving && !client.inAir) || (dot < 0f && !client.inAir)) {
-            drag = DRAG_IDLE;
-        }
-
-        client.speedX -= client.speedX * drag * deltaTime;
-        client.speedZ -= client.speedZ * drag * deltaTime;
-
-        client.speedX += inputX * deltaTime;
-        client.speedZ += inputZ * deltaTime;
-
-        float maxSpeed = 5f;
-        float combinedSpeed = (float)Math.sqrt(client.speedX*client.speedX + client.speedZ*client.speedZ);
-        if(combinedSpeed > maxSpeed) {
-            client.speedX = client.speedX / combinedSpeed * maxSpeed;
-            client.speedZ = client.speedZ / combinedSpeed * maxSpeed;
-        }
-
-        client.cameraCoords.x += client.speedX * deltaTime;
-        client.cameraCoords.z += client.speedZ * deltaTime;
-    }
-
-
-    private void spawnCubeRandomlyAtDistance(float radius, Client client) {
-        float x = (float)(Math.random() * 2 * radius - radius);
-        float z = (float)(Math.random() * 2 * radius - radius);
-        float y = 10f;
-        deathCubes.add(new DeathCube(client.cameraCoords.x + x, client.cameraCoords.y + y, client.cameraCoords.z + z, client.cameraCoords, 1f));
-
-    }
-
-    private Triple rotationToDirection(Pair<Float> rotation) {
-        float dx = (float)(Math.cos(rotation.x) * Math.sin(rotation.y));
-        float dy = (float)(Math.sin(rotation.x));
-        float dz = (float)(Math.cos(rotation.x) * Math.cos(rotation.y));
-        return new Triple(dx, dy, dz);
     }
 
     public static void main(String[] args) {
         SimpleMove game = new SimpleMove();
-
         game.start();
-
     }
 
-    private Triple moveForward(Client client) {
-        float dx = client.moveSpeed * (float) Math.sin(client.cameraRotation.y) * deltaTime;
-        float dz = client.moveSpeed * (float) Math.cos(client.cameraRotation.y) * deltaTime;
-        return new Triple(dx,0f, dz);
-    }
-
-    private Triple moveBackward(Client client) {
-        float dx = -client.moveSpeed * (float) Math.sin(client.cameraRotation.y) * deltaTime;
-        float dz = -client.moveSpeed * (float) Math.cos(client.cameraRotation.y) * deltaTime;
-        return new Triple(dx,0f, dz);
-    }
-
-    private Triple moveRight(Client client) {
-        float dx = client.moveSpeed * (float) Math.cos(client.cameraRotation.y) * deltaTime;
-        float dz = client.moveSpeed * (float) -Math.sin(client.cameraRotation.y) * deltaTime;
-        return new Triple(dx,0f, dz);
-    }
-
-    private Triple moveLeft(Client client) {
-        float dx = -client.moveSpeed * (float)Math.cos(client.cameraRotation.y) * deltaTime;
-        float dz = client.moveSpeed * (float)Math.sin(client.cameraRotation.y) * deltaTime;
-        return new Triple(dx,0f, dz);
-    }
-
-    public void swingAround(Client client) {
-        Triple toAnchor = client.anchor.sub(client.cameraCoords).normalize();
-        Triple tangent = toAnchor.normalize();
-        client.cameraCoords = client.cameraCoords.add(tangent.scale(client.moveSpeed*2 * deltaTime));
-        if(client.anchor.sub(client.cameraCoords).length() <= 1f) {
-            client.inAir = true;
-            client.speedY += 10f;
-            client.swinging = false;
-            client.grapplingEquipped = false;
-            client.grapplingHead.shot = false;
-            client.grapplingHead.flying = false;
-        }
-    }
-
-    private void prepareBulletForFlying(Pair<Float> direction, Client client) {
-        if(client.heldBullet == null)
-            return;
-        BulletHead e = new BulletHead();
-        e.rotation = new Pair<>(e.rotation.x,e.rotation.y);
-
-        client.heldBullet = null;
-
-        prepareShootableForFlying(direction, e, client);
-        bullets.add(e);
-        client.bulletShotLastTime = System.currentTimeMillis();
-    }
-
-    private void prepareShootableForFlying(Pair<Float> direction, Shootable shootable, Client client) {
-        shootable.direction = rotationToDirection(direction);
-        shootable.rotation = new Pair<>(client.cameraRotation.x, client.cameraRotation.y);
-        Triple newPosition = new Triple(client.cameraCoords.x, client.cameraCoords.y - 0.15f, client.cameraCoords.z + 0.8f).rotateXY(client.cameraCoords, shootable.rotation);
-        shootable.x = newPosition.x;
-        shootable.y = newPosition.y;
-        shootable.z = newPosition.z;
-        shootable.shot = true;
-        shootable.flying = true;
-        client.heldBullet = null; //fix if more bullets
-        client.bulletShotLastTime = System.currentTimeMillis();
-    }
 }

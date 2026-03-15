@@ -9,6 +9,13 @@ public class Pair<T> {
         this.y = y;
     }
 
+    public static Triple pairToTripleRotation(Pair<Float> pair) {
+        float dx = (float)(Math.cos(pair.x) * Math.sin(pair.y));
+        float dy = (float)(Math.sin(pair.x));
+        float dz = (float)(Math.cos(pair.x) * Math.cos(pair.y));
+        return new Triple(dx, dy, dz);
+    }
+
     public Pair(Pair<T> cameraRotation) {
         this.x = cameraRotation.x;
         this.y = cameraRotation.y;

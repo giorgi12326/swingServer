@@ -1,15 +1,14 @@
 package org.example;
 
-import java.awt.*;
-import java.awt.geom.Line2D;
 import java.util.List;
 
+import static org.example.Pair.pairToTripleRotation;
 import static org.example.SimpleMove.deltaTime;
 
 public abstract class Shootable extends Projectable{
     public boolean shot;
     public boolean flying;
-    public Triple direction;
+    public Triple deltaDirection;
     public float r = 0.3f;
     public float moveSpeed = 20f;
     public boolean markAsDeleted;
@@ -27,9 +26,9 @@ public abstract class Shootable extends Projectable{
             prevX = x;
             prevY = y;
             prevZ = z;
-            x += direction.x * moveSpeed * deltaTime;
-            y += direction.y * moveSpeed * deltaTime;
-            z += direction.z * moveSpeed * deltaTime;
+            x += deltaDirection.x * moveSpeed * deltaTime;
+            y += deltaDirection.y * moveSpeed * deltaTime;
+            z += deltaDirection.z * moveSpeed * deltaTime;
             if(Math.abs(x) > 800f ||
                     Math.abs(y) > 800f ||
                     Math.abs(z) > 800f)
@@ -37,4 +36,16 @@ public abstract class Shootable extends Projectable{
 
         }
     }
+
+    public void prepareShootableForFlying(Client client) {
+        deltaDirection = pairToTripleRotation(client.cameraRotation);
+        rotation = new Pair<>(client.cameraRotation.x, client.cameraRotation.y);
+        Triple newPosition = new Triple(client.cameraCoords.x, client.cameraCoords.y - 0.15f, client.cameraCoords.z + 0.8f).rotateXY(client.cameraCoords, rotation);
+        x = newPosition.x;
+        y = newPosition.y;
+        z = newPosition.z;
+        shot = true;
+        flying = true;
+    }
+
 }

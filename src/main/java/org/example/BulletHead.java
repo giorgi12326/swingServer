@@ -3,6 +3,8 @@ package org.example;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.example.SimpleMove.bullets;
+
 public class BulletHead extends Shootable {
     public static List<Pair<Integer>> edges =  new ArrayList<>();
 
@@ -49,6 +51,12 @@ public class BulletHead extends Shootable {
 
                 new Triple(x + dx,y + dy, z + 0.2f),
         };
+    }
+
+    public static void generatePreparedBulletForAndAddToList(Client client) {
+        BulletHead bullet = new BulletHead();
+        bullet.prepareShootableForFlying(client);
+        bullets.add(bullet);
     }
 
     @Override
