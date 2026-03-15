@@ -11,7 +11,7 @@ public abstract class Shootable extends Projectable{
     public Triple deltaDirection;
     public float r = 0.3f;
     public float moveSpeed = 20f;
-    public boolean markAsDeleted;
+    public boolean markedAsDeleted;
 
     float prevX;
     float prevY;
@@ -32,7 +32,7 @@ public abstract class Shootable extends Projectable{
             if(Math.abs(x) > 800f ||
                     Math.abs(y) > 800f ||
                     Math.abs(z) > 800f)
-                markAsDeleted = true;
+                markedAsDeleted = true;
 
         }
     }

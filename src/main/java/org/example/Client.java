@@ -123,7 +123,7 @@ public class Client {
         cameraCoords = cameraCoords.add(tangent.scale(moveSpeed*2 * deltaTime));
         if(anchor.sub(cameraCoords).length() <= 1f) {
             inAir = true;
-            speedY += 10f;
+            sum.y += 10f;
             swinging = false;
             grapplingEquipped = false;
             grapplingHead.shot = false;

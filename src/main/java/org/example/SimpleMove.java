@@ -103,25 +103,28 @@ public class SimpleMove {
 
     private void update() {
         bullets.forEach(Shootable::update);
-
         for (int i = deathCubes.size() - 1; i >= 0; i--) {
             DeathCube deathCube = deathCubes.get(i);
-            if(deathCube.markedAsDeleted || deathCube.y < 0)
+            if(deathCube.markedAsDeleted)
                 deathCubes.remove(i);
         }
 
+        for (int i = bullets.size() - 1; i >= 0; i--) {
+            BulletHead bullet = bullets.get(i);
+            if(bullet.markedAsDeleted)
+                bullets.remove(i);
+        }
+        handleBulletHittingSomething();
+
+    }
+
+    private void handleBulletHittingSomething() {
         for (BulletHead bullet : bullets) {
             for (int j = deathCubes.size()-1; j >= 0; j--) {
                 DeathCube deathCube = deathCubes.get(j);
                 if (deathCube.isPointInCube(bullet.getNodes()[8]))
                     deathCubes.remove(j);
             }
-        }
-
-        for (int i = bullets.size() - 1; i >= 0; i--) {
-            BulletHead bullet = bullets.get(i);
-            if(bullet.markAsDeleted)
-                bullets.remove(i);
         }
 
         for (int i = bullets.size() - 1; i >= 0; i--) {
@@ -148,7 +151,6 @@ public class SimpleMove {
                 }
             }
         }
-
     }
 
     private void useReceivedData(Client client, float rotationX, float rotationY, boolean w, boolean a, boolean s, boolean d, boolean space, boolean leftClick, boolean rightClick) {
