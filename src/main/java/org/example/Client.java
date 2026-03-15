@@ -2,9 +2,9 @@ package org.example;
 
 import java.net.DatagramPacket;
 import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 
+import static org.example.SimpleMove.cubes;
 import static org.example.SimpleMove.deltaTime;
 
 public class Client {
@@ -24,9 +24,9 @@ public class Client {
     boolean swinging;
     boolean grapplingEquipped;
     boolean inAir;
-    final float moveSpeed = 6f;
+    final float moveSpeed = 100f;
     ClientInput latestInput = new ClientInput();
-    final Object inputLock = new Object();
+    final Object mutex = new Object();
     DatagramPacket packet;
     public long lastSecondarySwitch = System.currentTimeMillis();
     long time;
@@ -76,45 +76,48 @@ public class Client {
     }
 
     public void moveCharacter() {
-        float inputX = sum.x;
-        float inputZ = sum.z;
+        sum.x /= 1.3f;
+        sum.z /= 1.3f;
 
-        float inputLength = (float)Math.sqrt(inputX*inputX + inputZ*inputZ);
-        if(inputLength > 0.001f) {
-            inputX /= inputLength;
-            inputZ /= inputLength;
-        }
+        sum.x += speedX;
+        sum.z += speedZ;
 
-        inputX *= moveSpeed;
-        inputZ *= moveSpeed;
-
-        final float DRAG_MOVE = 0.1f;
-        final float DRAG_IDLE = 30.0f;
-        boolean notMoving = sum.x == 0 && sum.z == 0;
-
-        float drag = DRAG_MOVE;
-
-        float dot = speedX * inputX + speedZ * inputZ;
-
-        if ((notMoving && !inAir) || (dot < 0f && !inAir)) {
-            drag = DRAG_IDLE;
-        }
-
-        speedX -= speedX * drag * deltaTime;
-        speedZ -= speedZ * drag * deltaTime;
-
-        speedX += inputX * deltaTime;
-        speedZ += inputZ * deltaTime;
-
-        float maxSpeed = 5f;
-        float combinedSpeed = (float)Math.sqrt(speedX*speedX + speedZ*speedZ);
+        float maxSpeed = 3f;
+        float combinedSpeed = (float)Math.sqrt(sum.x*sum.x + sum.z*sum.z);
         if(combinedSpeed > maxSpeed) {
-            speedX = speedX / combinedSpeed * maxSpeed;
-            speedZ = speedZ / combinedSpeed * maxSpeed;
+            sum.x = sum.x / combinedSpeed * maxSpeed;
+            sum.z = sum.z / combinedSpeed * maxSpeed;
         }
 
-        cameraCoords.x += speedX * deltaTime;
-        cameraCoords.z += speedZ * deltaTime;
+        cameraCoords.x += sum.x * deltaTime;
+        clipBackForX();
+
+        cameraCoords.z += sum.z * deltaTime;
+        clipBackForZ();
+    }
+
+    private void clipBackForZ() {
+        for (Cube cube : cubes) {
+            if (cube.isPointInCube(cameraCoords)) {
+                if (sum.z > 0)
+                    cameraCoords.z = cube.z - cube.size / 2 - 0.0001f;
+                else if (sum.z < 0)
+                    cameraCoords.z = cube.z + cube.size / 2 + 0.0001f;
+                sum.z = 0f;
+            }
+        }
+    }
+
+    private void clipBackForX() {
+        for (Cube cube : cubes) {
+            if (cube.isPointInCube(cameraCoords)) {
+                if (sum.x > 0)
+                    cameraCoords.x = cube.x - cube.size / 2 - 0.0001f;
+                else if (sum.x < 0)
+                    cameraCoords.x = cube.x + cube.size / 2 + 0.0001f;
+                sum.x = 0f;
+            }
+        }
     }
 
     public void swingAround() {
