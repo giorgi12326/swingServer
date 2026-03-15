@@ -4,8 +4,7 @@ import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.nio.ByteBuffer;
 
-import static org.example.SimpleMove.cubes;
-import static org.example.SimpleMove.deltaTime;
+import static org.example.SimpleMove.*;
 
 public class Client {
     public boolean isDead;
@@ -28,7 +27,6 @@ public class Client {
     ClientInput latestInput = new ClientInput();
     final Object mutex = new Object();
     DatagramPacket packet;
-    public long lastSecondarySwitch = System.currentTimeMillis();
     long time;
 
     Cube hitbox = new Cube(0,0,0,1f);
@@ -89,6 +87,12 @@ public class Client {
             sum.z = sum.z / combinedSpeed * maxSpeed;
         }
 
+        if(!swinging && inAir)
+            speedY = -GRAVITY * deltaTime;
+        sum.y += speedY * deltaTime;
+        cameraCoords.y += sum.y;
+        clipBackForYAndGround();
+
         cameraCoords.x += sum.x * deltaTime;
         clipBackForX();
 
@@ -119,14 +123,49 @@ public class Client {
             }
         }
     }
+    private void clipBackForYAndGround() {
+        inAir = true;
+        for (Cube cube : cubes) {
+            if (cube.isPointInCube(cameraCoords)) {
+                if (sum.y > 0) {
+                    cameraCoords.y = cube.y - cube.size / 2 - 0.0001f;
+                } else {
+                    cameraCoords.y = cube.y + cube.size / 2 + 0.0001f;
+                    inAir = false;
+                }
+                speedY = 0f;
+            }
+        }
+
+        if (cameraCoords.y <= 0f) {
+            cameraCoords.y = 0.0001f;
+            speedY = 0f;
+            inAir = false;
+        }
+    }
+
+    public void handleIfDead() {
+        if(isDead && System.currentTimeMillis() - timeOfDeathLocal > 5000) {
+            health = 100;
+            isDead = false;
+        }
+
+        if(health <= 0 && !isDead) {
+            cameraCoords.x = 0;
+            cameraCoords.y = 20;
+            cameraCoords.z = 0;
+            isDead = true;
+            timeOfDeathLocal = System.currentTimeMillis();
+        }
+    }
 
     public void swingAround() {
         Triple toAnchor = anchor.sub(cameraCoords).normalize();
         Triple tangent = toAnchor.normalize();
-        cameraCoords = cameraCoords.add(tangent.scale(moveSpeed*2 * deltaTime));
+        cameraCoords = cameraCoords.add(tangent.scale(10 * deltaTime));
         if(anchor.sub(cameraCoords).length() <= 1f) {
             inAir = true;
-            sum.y += 10f;
+            sum.y = 10f * deltaTime;
             swinging = false;
             grapplingEquipped = false;
             grapplingHead.shot = false;

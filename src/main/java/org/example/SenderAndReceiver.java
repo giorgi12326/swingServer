@@ -42,6 +42,9 @@ public class SenderAndReceiver implements Runnable{
                 client.latestInput.s = readerBuffer.get() == 1;
                 client.latestInput.d = readerBuffer.get() == 1;
                 client.latestInput.space = readerBuffer.get() == 1;
+                client.latestInput.one = readerBuffer.get() == 1;
+                client.latestInput.two = readerBuffer.get() == 1;
+                client.latestInput.three = readerBuffer.get() == 1;
                 client.latestInput.leftClick = readerBuffer.get() == 1;
                 client.latestInput.rightClick = readerBuffer.get() == 1;
                 client.latestInput.rotationX = readerBuffer.getFloat();

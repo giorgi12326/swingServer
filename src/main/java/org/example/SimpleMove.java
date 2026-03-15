@@ -69,7 +69,7 @@ public class SimpleMove {
             lastTime = now;
 
             for (Client c : clients) {
-                boolean w, a, s, d, space, leftClick, rightClick;
+                boolean w, a, s, d, space, one, two, three, leftClick, rightClick;
                 float rotationX, rotationY;
 
                 synchronized (c.mutex) {
@@ -78,42 +78,117 @@ public class SimpleMove {
                     s = c.latestInput.s;
                     d = c.latestInput.d;
                     space = c.latestInput.space;
+                    one = c.latestInput.one;
+                    two = c.latestInput.two;
+                    three = c.latestInput.three;
                     leftClick = c.latestInput.leftClick;
                     rightClick = c.latestInput.rightClick;
                     rotationX = c.latestInput.rotationX;
                     rotationY = c.latestInput.rotationY;
                 }
-                useReceivedData(c, rotationX, rotationY, w, a, s, d, space, leftClick, rightClick);
+                useReceivedData(c, rotationX, rotationY, w, a, s, d, space, one, two, three, leftClick, rightClick);
             }
 
+            bullets.forEach(Shootable::update);
             handleDeletionMarks();
             handleBulletHittingSomething();
             broadCastState();
 
-            long tickDuration = System.currentTimeMillis() - tickStart;
-            long sleep = Math.max(0, TICK_DURATION_MS - tickDuration);
             try {
-
-                Thread.sleep((int)(sleep));
+                Thread.sleep((int)(Math.max(0, TICK_DURATION_MS - (System.currentTimeMillis() - tickStart))));
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
         }
     }
 
-    private void handleDeletionMarks() {
-        bullets.forEach(Shootable::update);
-        for (int i = deathCubes.size() - 1; i >= 0; i--) {
-            DeathCube deathCube = deathCubes.get(i);
-            if(deathCube.markedAsDeleted)
-                deathCubes.remove(i);
+    private void useReceivedData(Client client, float rotationX, float rotationY, boolean w, boolean a, boolean s, boolean d, boolean space, boolean one, boolean two, boolean three, boolean leftClick, boolean rightClick) {
+        client.handleIfDead();
+        if(client.isDead) return;
+
+        updatePerClient(client);
+
+        client.cameraRotation.x = rotationX;
+        client.cameraRotation.y = rotationY;
+
+        if(w) {
+            Triple triple = client.moveForward();
+            client.speedX += triple.x;
+            client.speedZ += triple.z;
+        }
+        if(a) {
+            Triple triple = client.moveLeft();
+            client.speedX += triple.x;
+            client.speedZ += triple.z;
+        }
+        if(s) {
+            Triple triple = client.moveBackward();
+            client.speedX += triple.x;
+            client.speedZ += triple.z;
+        }
+        if(d) {
+            Triple triple = client.moveRight();
+            client.speedX += triple.x;
+            client.speedZ += triple.z;
         }
 
-        for (int i = bullets.size() - 1; i >= 0; i--) {
-            BulletHead bullet = bullets.get(i);
-            if(bullet.markedAsDeleted)
-                bullets.remove(i);
+        if(space && !client.inAir) {
+            client.sum.y = 8f*deltaTime;
+            client.inAir = true;
         }
+
+        if(leftClick) {
+            if(client.grapplingEquipped && !client.grapplingHead.shot)
+                client.grapplingHead.prepareShootableForFlying(client);
+            else {
+                if(client.heldBullet != null) {
+                    BulletHead.generatePreparedBulletForAndAddToList(client);
+                    client.shotBulletHandleState();
+                }
+            }
+        }
+
+        if(one){
+            client.grapplingEquipped = false;
+            client.swinging = false;
+            client.grapplingHead.shot = false;
+            client.grapplingHead.flying = false;
+        }
+
+        if(two){
+            client.grapplingEquipped = true;
+        }
+    }
+
+
+    private void updatePerClient(Client client) {
+        if(client.swinging)
+            client.swingAround();
+        else
+            client.moveCharacter();//? in else?
+
+        if(client.heldBullet == null && System.currentTimeMillis() - client.bulletShotLastTime > 333){
+            client.heldBullet = new BulletHead();
+        }
+
+        client.grapplingHead.update();
+        if(client.grapplingHead.shot)
+            for(Cube cube : cubes) {
+                if(cube.isPointInCube(client.grapplingHead.getNodes()[17])) {
+                    client.swinging = true;
+                    client.grapplingHead.flying = false;
+                    client.anchor = new Triple(cube.x + cube.size / 2f, cube.y + cube.size / 2f, cube.z + cube.size / 2f);
+                }
+            }
+
+        client.hitbox.x = client.cameraCoords.x;
+        client.hitbox.y = client.cameraCoords.y;
+        client.hitbox.z = client.cameraCoords.z;
+
+        client.speedX = 0;
+        client.speedY = 0;
+        client.speedZ = 0;
+
     }
 
     private void handleBulletHittingSomething() {
@@ -151,132 +226,18 @@ public class SimpleMove {
         }
     }
 
-    private void useReceivedData(Client client, float rotationX, float rotationY, boolean w, boolean a, boolean s, boolean d, boolean space, boolean leftClick, boolean rightClick) {
-        if(client.isDead)
-            return;
-
-        updatePerClient(client);
-
-        client.cameraRotation.x = rotationX;
-        client.cameraRotation.y = rotationY;
-
-        if(w) {
-            Triple triple = client.moveForward();
-            client.speedX += triple.x;
-            client.speedZ += triple.z;
-        }
-        if(a) {
-            Triple triple = client.moveLeft();
-            client.speedX += triple.x;
-            client.speedZ += triple.z;
-        }
-        if(s) {
-            Triple triple = client.moveBackward();
-            client.speedX += triple.x;
-            client.speedZ += triple.z;
-        }
-        if(d) {
-            Triple triple = client.moveRight();
-            client.speedX += triple.x;
-            client.speedZ += triple.z;
+    private void handleDeletionMarks() {
+        for (int i = deathCubes.size() - 1; i >= 0; i--) {
+            DeathCube deathCube = deathCubes.get(i);
+            if(deathCube.markedAsDeleted)
+                deathCubes.remove(i);
         }
 
-        if(space && !client.inAir) {
-            client.sum.y = 6f*deltaTime;
-            client.inAir = true;
+        for (int i = bullets.size() - 1; i >= 0; i--) {
+            BulletHead bullet = bullets.get(i);
+            if(bullet.markedAsDeleted)
+                bullets.remove(i);
         }
-
-        if(leftClick) {
-            if(client.grapplingEquipped && !client.grapplingHead.shot)
-                client.grapplingHead.prepareShootableForFlying(client);
-            else {
-                if(client.heldBullet != null) {
-                    BulletHead.generatePreparedBulletForAndAddToList(client);
-                    client.shotBulletHandleState();
-                }
-            }
-        }
-
-        if(rightClick && (System.currentTimeMillis() - client.lastSecondarySwitch) > 200) {
-            client.lastSecondarySwitch = System.currentTimeMillis();
-            client.grapplingEquipped = !client.grapplingEquipped;
-            client.swinging = false;
-            client.grapplingHead.shot = false;
-            client.grapplingHead.flying = false;
-        }
-    }
-
-
-    private void updatePerClient(Client client) {
-        if(client.isDead && System.currentTimeMillis() - client.timeOfDeathLocal > 5000) {
-            client.health = 100;
-            client.isDead = false;
-        }
-
-        if(client.health <= 0 && !client.isDead) {
-            client.cameraCoords.x = 0;
-            client.cameraCoords.y = 20;
-            client.cameraCoords.z = 0;
-            client.isDead = true;
-            client.timeOfDeathLocal = System.currentTimeMillis();
-        }
-
-        if(client.isDead) return;
-
-        if(!client.swinging && client.inAir)
-            client.speedY = -GRAVITY * deltaTime;
-        client.sum.y += client.speedY * deltaTime;
-        client.cameraCoords.y += client.sum.y;
-
-        client.inAir = true;
-        for (Cube cube : cubes) {
-            if (cube.isPointInCube(client.cameraCoords)) {
-                if (client.sum.y > 0) {
-                    client.cameraCoords.y = cube.y - cube.size / 2 - 0.0001f;
-                } else {
-                    client.cameraCoords.y = cube.y + cube.size / 2 + 0.0001f;
-                    client.inAir = false;
-                }
-                client.speedY = 0f;
-            }
-        }
-        if (client.cameraCoords.y <= 0f) {
-            client.cameraCoords.y = 0.0001f;
-            client.speedY = 0f;
-            client.inAir = false;
-        }
-
-        client.moveCharacter();
-
-
-
-        if(client.swinging) {
-            client.swingAround();
-        }
-
-        client.grapplingHead.update();
-
-        if(client.heldBullet == null && System.currentTimeMillis() - client.bulletShotLastTime > 333){
-            client.heldBullet = new BulletHead();
-        }
-
-        if(client.grapplingHead.shot)
-            for(Cube cube : cubes) {
-                if(cube.isPointInCube(client.grapplingHead.getNodes()[17])) {
-                    client.swinging = true;
-                    client.grapplingHead.flying = false;
-                    client.anchor = new Triple(cube.x + cube.size / 2f, cube.y + cube.size / 2f, cube.z + cube.size / 2f);
-                }
-            }
-
-        client.hitbox.x = client.cameraCoords.x;
-        client.hitbox.y = client.cameraCoords.y;
-        client.hitbox.z = client.cameraCoords.z;
-
-        client.speedX = 0;
-        client.speedY = 0;
-        client.speedZ = 0;
-
     }
 
     public static void main(String[] args) {
