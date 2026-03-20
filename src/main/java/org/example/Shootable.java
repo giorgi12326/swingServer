@@ -12,6 +12,7 @@ public abstract class Shootable extends Projectable{
     public float r = 0.3f;
     public float moveSpeed = 20f;
     public boolean markedAsDeleted;
+    public int shooter;
 
     float prevX;
     float prevY;
@@ -44,6 +45,7 @@ public abstract class Shootable extends Projectable{
         x = newPosition.x;
         y = newPosition.y;
         z = newPosition.z;
+        shooter = client.port;
         shot = true;
         flying = true;
     }

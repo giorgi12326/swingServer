@@ -229,7 +229,7 @@ public class SimpleMove {
             temp.z = bullet.getNodes()[8].z;
 
             for(Client client : clients) {
-                if(client.hitbox.isLineIntersectingCube(
+                if(client.port != bullet.shooter && client.hitbox.isLineIntersectingCube(
                         new Triple(bullet.prevX, bullet.prevY, bullet.prevZ),
                         new Triple(bullet.x, bullet.y, bullet.z))) {
                     client.cameraCoords.y += 10f;
