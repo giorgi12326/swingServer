@@ -214,7 +214,9 @@ public class SimpleMove {
         for (int i = bullets.size() - 1; i >= 0; i--) {
             BulletHead bullet = bullets.get(i);
             for(Cube cube : cubes) {
-                if(cube.isPointInCube(bullet.getNodes()[8]))
+                if(cube.isLineIntersectingCube(
+                        new Triple(bullet.x, bullet.y, bullet.z),
+                        new Triple(bullet.prevX, bullet.prevY, bullet.prevZ)))
                     bullets.remove(i);
             }
         }

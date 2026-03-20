@@ -10,6 +10,7 @@ public class PowerUp {
     public int type = 10;
 
     boolean flip;
+    float hoverTempHeight;
 
     public PowerUp(Triple position) {
         float v = (float) (Math.random() / 2f);
@@ -22,9 +23,15 @@ public class PowerUp {
     }
 
     public void makeHover() {
-        if(position.y >= 0.5f || position.y <= 0)
+        if(hoverTempHeight >= 0.5f || hoverTempHeight <= 0)
             flip = !flip;
-        if(flip) position.y += 0.005f;
-        else position.y -= 0.005f;
+        if(flip) {
+            position.y += 0.005f;
+            hoverTempHeight += 0.005f;
+        }
+        else {
+            position.y -= 0.005f;
+            hoverTempHeight -= 0.005f;
+        }
     }
 }
