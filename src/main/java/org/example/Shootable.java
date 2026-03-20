@@ -40,7 +40,7 @@ public abstract class Shootable extends Projectable{
     public void prepareShootableForFlying(Client client) {
         deltaDirection = pairToTripleRotation(client.cameraRotation);
         rotation = new Pair<>(client.cameraRotation.x, client.cameraRotation.y);
-        Triple newPosition = new Triple(client.cameraCoords.x, client.cameraCoords.y - 0.15f, client.cameraCoords.z + 0.8f).rotateXY(client.cameraCoords, rotation);
+        Triple newPosition = new Triple(client.cameraCoords.x +0.3f, client.cameraCoords.y, client.cameraCoords.z + 0.8f).rotateXY(client.cameraCoords, rotation);
         x = newPosition.x;
         y = newPosition.y;
         z = newPosition.z;

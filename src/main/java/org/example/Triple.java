@@ -5,9 +5,9 @@ import java.awt.geom.Rectangle2D;
 
 
 public class Triple {
-    float x;
-    float y;
-    float z;
+    public float x;
+    public float y;
+    public float z;
 
     public Triple(Float x, Float y, Float z) {
         this.x = x;

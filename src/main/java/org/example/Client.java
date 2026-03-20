@@ -1,8 +1,14 @@
 package org.example;
 
+import org.example.powerUp.MoveSpeedPowerUp;
+import org.example.powerUp.PowerUp;
+import org.example.powerUp.ShootSpeedPowerUp;
+
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.example.SimpleMove.*;
 
@@ -35,6 +41,7 @@ public class Client {
     float speedY = 0f;
     float speedZ = 0f;
     long bulletShotLastTime = System.currentTimeMillis();
+    List<PowerUp> powerUps = new ArrayList<>();
 
     public Client(InetAddress inetAddress, int port , ByteBuffer buffer) {
         this.ip = inetAddress;
@@ -50,26 +57,26 @@ public class Client {
     }
 
     public Triple moveForward() {
-        float dx = moveSpeed * (float) Math.sin(cameraRotation.y) * deltaTime;
-        float dz = moveSpeed * (float) Math.cos(cameraRotation.y) * deltaTime;
+        float dx = getMoveSpeed() * (float) Math.sin(cameraRotation.y) * deltaTime;
+        float dz = getMoveSpeed() * (float) Math.cos(cameraRotation.y) * deltaTime;
         return new Triple(dx,0f, dz);
     }
 
     public Triple moveBackward() {
-        float dx = -moveSpeed * (float) Math.sin(cameraRotation.y) * deltaTime;
-        float dz = -moveSpeed * (float) Math.cos(cameraRotation.y) * deltaTime;
+        float dx = -getMoveSpeed() * (float) Math.sin(cameraRotation.y) * deltaTime;
+        float dz = -getMoveSpeed() * (float) Math.cos(cameraRotation.y) * deltaTime;
         return new Triple(dx,0f, dz);
     }
 
     public Triple moveRight() {
-        float dx = moveSpeed * (float) Math.cos(cameraRotation.y) * deltaTime;
-        float dz = moveSpeed * (float) -Math.sin(cameraRotation.y) * deltaTime;
+        float dx = getMoveSpeed() * (float) Math.cos(cameraRotation.y) * deltaTime;
+        float dz = getMoveSpeed() * (float) -Math.sin(cameraRotation.y) * deltaTime;
         return new Triple(dx,0f, dz);
     }
 
     public Triple moveLeft() {
-        float dx = -moveSpeed * (float)Math.cos(cameraRotation.y) * deltaTime;
-        float dz = moveSpeed * (float)Math.sin(cameraRotation.y) * deltaTime;
+        float dx = -getMoveSpeed() * (float)Math.cos(cameraRotation.y) * deltaTime;
+        float dz = getMoveSpeed() * (float)Math.sin(cameraRotation.y) * deltaTime;
         return new Triple(dx,0f, dz);
     }
 
@@ -80,7 +87,7 @@ public class Client {
         sum.x += speedX;
         sum.z += speedZ;
 
-        float maxSpeed = 3f;
+        float maxSpeed = 3f * getMoveSpeed()/moveSpeed;
         float combinedSpeed = (float)Math.sqrt(sum.x*sum.x + sum.z*sum.z);
         if(combinedSpeed > maxSpeed) {
             sum.x = sum.x / combinedSpeed * maxSpeed;
@@ -129,6 +136,7 @@ public class Client {
             if (cube.isPointInCube(cameraCoords)) {
                 if (sum.y > 0) {
                     cameraCoords.y = cube.y - cube.size / 2 - 0.0001f;
+                    sum.y = 0;
                 } else {
                     cameraCoords.y = cube.y + cube.size / 2 + 0.0001f;
                     inAir = false;
@@ -172,4 +180,41 @@ public class Client {
             grapplingHead.flying = false;
         }
     }
+
+    void update(){
+        updatePowerUps();
+
+    }
+
+    private void updatePowerUps() {
+        for (int i = powerUps.size()-1; i >= 0; i--) {
+            PowerUp powerUp = powerUps.get(i);
+            if(powerUp.isExpired()){
+                powerUps.remove(powerUp);
+            }
+        }
+    }
+
+    private float getMoveSpeed() {
+        float appliedMoveSpeed = moveSpeed;
+        for (PowerUp powerUp: powerUps){
+            if(powerUp instanceof MoveSpeedPowerUp){
+                appliedMoveSpeed *= powerUp.effectiveness;
+            }
+        }
+
+        return appliedMoveSpeed;
+    }
+
+    public float getAttackSpeedDuration() {
+        long attackSpeedDuration = 333L;
+        long appliedAttackSpeedDuration = attackSpeedDuration;
+        for (PowerUp powerUp: powerUps){
+            if(powerUp instanceof ShootSpeedPowerUp){
+                appliedAttackSpeedDuration /= (long) powerUp.effectiveness;
+            }
+        }
+        return appliedAttackSpeedDuration;
+    }
+
 }

@@ -1,5 +1,7 @@
 package org.example;
 
+import org.example.powerUp.PowerUp;
+
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.nio.ByteBuffer;
@@ -36,21 +38,21 @@ public class SenderAndReceiver implements Runnable{
                     System.out.println("client connected with ip: " + packet.getAddress() + " and port: " + packet.getPort());
                 }
 
-              synchronized(client.mutex) {
-                client.latestInput.w = readerBuffer.get() == 1;
-                client.latestInput.a = readerBuffer.get() == 1;
-                client.latestInput.s = readerBuffer.get() == 1;
-                client.latestInput.d = readerBuffer.get() == 1;
-                client.latestInput.space = readerBuffer.get() == 1;
-                client.latestInput.one = readerBuffer.get() == 1;
-                client.latestInput.two = readerBuffer.get() == 1;
-                client.latestInput.three = readerBuffer.get() == 1;
-                client.latestInput.leftClick = readerBuffer.get() == 1;
-                client.latestInput.rightClick = readerBuffer.get() == 1;
-                client.latestInput.rotationX = readerBuffer.getFloat();
-                client.latestInput.rotationY = readerBuffer.getFloat();
-                client.time = readerBuffer.getLong();
-              }
+                synchronized(client.mutex) {
+                    client.latestInput.w = readerBuffer.get() == 1;
+                    client.latestInput.a = readerBuffer.get() == 1;
+                    client.latestInput.s = readerBuffer.get() == 1;
+                    client.latestInput.d = readerBuffer.get() == 1;
+                    client.latestInput.space = readerBuffer.get() == 1;
+                    client.latestInput.one = readerBuffer.get() == 1;
+                    client.latestInput.two = readerBuffer.get() == 1;
+                    client.latestInput.three = readerBuffer.get() == 1;
+                    client.latestInput.leftClick = readerBuffer.get() == 1;
+                    client.latestInput.rightClick = readerBuffer.get() == 1;
+                    client.latestInput.rotationX = readerBuffer.getFloat();
+                    client.latestInput.rotationY = readerBuffer.getFloat();
+                    client.time = readerBuffer.getLong();
+                }
 
             }
         } catch (Exception e) {
@@ -88,6 +90,11 @@ public class SenderAndReceiver implements Runnable{
             senderBuffer.putFloat(client.grapplingHead.rotation.x);
             senderBuffer.putFloat(client.grapplingHead.rotation.y);
 
+            senderBuffer.putInt(client.powerUps.size());
+            for(PowerUp powerUp: client.powerUps){
+                senderBuffer.putInt(powerUp.type);
+            }
+
             senderBuffer.putInt(clients.size()-1);
             for(Client c : clients) {
                 if(c == client) continue;
@@ -103,6 +110,14 @@ public class SenderAndReceiver implements Runnable{
                 senderBuffer.putFloat(c.grapplingHead.rotation.x);
                 senderBuffer.putFloat(c.grapplingHead.rotation.y);
                 senderBuffer.put((byte)(c.grapplingEquipped? 1 : 0));
+            }
+
+            senderBuffer.putInt(powerUps.size());
+            for(PowerUp power: powerUps){
+                senderBuffer.putFloat(power.position.x);
+                senderBuffer.putFloat(power.position.y);
+                senderBuffer.putFloat(power.position.z);
+                senderBuffer.putInt(power.type);
             }
 
             senderBuffer.putLong(client.time);

@@ -1,6 +1,8 @@
 package org.example;
 
+import org.example.powerUp.MoveSpeedPowerUp;
 import org.example.powerUp.PowerUp;
+import org.example.powerUp.ShootSpeedPowerUp;
 
 import java.io.IOException;
 import java.net.*;
@@ -26,7 +28,7 @@ public class SimpleMove {
     public static List<DeathCube> deathCubes = new ArrayList<>();
     List<Triple> floor = new ArrayList<>();
     public static List<BulletHead> bullets = new ArrayList<>();
-    List<PowerUp> powerUps = new ArrayList<>();
+    public static List<PowerUp> powerUps = new ArrayList<>();
 
     public static final float GRAVITY = 10f;
 
@@ -49,6 +51,10 @@ public class SimpleMove {
                 floor.add(new Triple(i*1f, 0f, j*1f));
             }
         }
+        powerUps.add(new MoveSpeedPowerUp(new Triple(0f, 0f, 2f)));
+        powerUps.add(new MoveSpeedPowerUp(new Triple(2f, 0f, -2f)));
+        powerUps.add(new ShootSpeedPowerUp(new Triple(5f, 0f, -4f)));
+        powerUps.add(new ShootSpeedPowerUp(new Triple(-5f, 2f, -4f)));
     }
 
     public void start()  {
@@ -86,12 +92,17 @@ public class SimpleMove {
                     rotationX = c.latestInput.rotationX;
                     rotationY = c.latestInput.rotationY;
                 }
+                c.update();
                 useReceivedData(c, rotationX, rotationY, w, a, s, d, space, one, two, three, leftClick, rightClick);
             }
 
             bullets.forEach(Shootable::update);
+            for(PowerUp power :powerUps)
+                power.makeHover();
+
             handleDeletionMarks();
             handleBulletHittingSomething();
+            handleClientGettingPowerUp();
             broadCastState();
 
             try {
@@ -167,7 +178,7 @@ public class SimpleMove {
         else
             client.moveCharacter();//? in else?
 
-        if(client.heldBullet == null && System.currentTimeMillis() - client.bulletShotLastTime > 333){
+        if(client.heldBullet == null && System.currentTimeMillis() - client.bulletShotLastTime > client.getAttackSpeedDuration()){
             client.heldBullet = new BulletHead();
         }
 
@@ -237,6 +248,20 @@ public class SimpleMove {
             BulletHead bullet = bullets.get(i);
             if(bullet.markedAsDeleted)
                 bullets.remove(i);
+        }
+    }
+
+    private void handleClientGettingPowerUp() {
+        for (int i = powerUps.size()-1; i >= 0; i--) {
+            PowerUp powerUp = powerUps.get(i);
+            for(Client client: clients) {
+                if (client.hitbox.isPointInCube(powerUp.position)) {
+                    System.out.println("baba");
+                    powerUps.remove(powerUp);
+                    powerUp.activationTime = System.currentTimeMillis();
+                    client.powerUps.add(powerUp);
+                }
+            }
         }
     }
 
